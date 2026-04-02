@@ -17,6 +17,7 @@ vi.mock('@/components/story-input/StoryInputComposer', () => ({
   default: ({
     minRows,
     maxHeightViewportRatio,
+    textareaClassName,
     topRight,
     footer,
     secondaryActions,
@@ -24,6 +25,7 @@ vi.mock('@/components/story-input/StoryInputComposer', () => ({
   }: {
     minRows: number
     maxHeightViewportRatio: number
+    textareaClassName?: string
     topRight?: React.ReactNode
     footer?: React.ReactNode
     secondaryActions?: React.ReactNode
@@ -33,6 +35,7 @@ vi.mock('@/components/story-input/StoryInputComposer', () => ({
     {
       'data-min-rows': String(minRows),
       'data-max-height-ratio': String(maxHeightViewportRatio),
+      'data-textarea-class': textareaClassName,
     },
     topRight,
     footer,
@@ -79,6 +82,7 @@ describe('NovelInputStage', () => {
     expect(html).toContain('StoryInputComposer')
     expect(html).toContain('data-min-rows="8"')
     expect(html).toContain('data-max-height-ratio="0.5"')
+    expect(html).toContain('data-textarea-class="px-0 pt-0 pb-3 align-top"')
     expect(html).toContain('aiWrite.trigger')
     expect(html).toContain('AiWriteModal')
     expect(html).not.toContain('storyInput.wordCount 0')

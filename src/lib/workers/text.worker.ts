@@ -8,6 +8,7 @@ import { QUEUE_NAME } from '@/lib/task/queues'
 import { TASK_TYPE, type TaskJobData } from '@/lib/task/types'
 import { buildPrompt, PROMPT_IDS } from '@/lib/prompt-i18n'
 import { resolveInsertPanelUserInput } from '@/lib/novel-promotion/insert-panel'
+import { buildInsertPanelLocationsDescription } from '@/lib/novel-promotion/insert-panel-prompt-context'
 import {
   executePhase1,
   executePhase2,
@@ -530,14 +531,11 @@ async function handleInsertPanelTask(job: Job<TaskJobData>) {
     })
     .join('\n') || '无'
 
-  const locationsDescription = projectLocations
-    .filter((location) => relatedLocations.length === 0 || relatedLocations.includes(location.name))
-    .map((location) => {
-      const images = location.images || []
-      const selectedImage = images.find((img) => img.isSelected) || images[0]
-      return `${location.name}: ${selectedImage?.description || '无描述'}`
-    })
-    .join('\n') || '无'
+  const locationsDescription = buildInsertPanelLocationsDescription(
+    projectLocations,
+    relatedLocations,
+    job.data.locale,
+  )
   const propsDescription = projectProps
     .filter((prop) => relatedProps.length === 0 || relatedProps.includes(prop.name))
     .map((prop) => `${prop.name}: ${prop.summary || '无描述'}`)

@@ -2,6 +2,7 @@
   "title": "From Inspiration to Screen",
   "subtitle": "Describe your story and let AI generate cinematic short dramas",
   "inputPlaceholder": "Enter your story idea, novel excerpt, or script outline...",
+  "defaultProjectName": "New Project {timestamp}",
   "startCreation": "Start Creating",
   "recentProjects": "Recent Projects",
   "viewAll": "View All Projects",

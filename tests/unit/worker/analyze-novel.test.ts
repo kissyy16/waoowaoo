@@ -185,6 +185,7 @@ describe('worker analyze-novel behavior', () => {
           locationId: 'loc-new-1',
           imageIndex: 0,
           description: '雨夜街道',
+          availableSlots: '[]',
         },
       ],
     })
@@ -194,6 +195,7 @@ describe('worker analyze-novel behavior', () => {
           locationId: 'prop-new-1',
           imageIndex: 0,
           description: '一根两头包裹金片的黑铁长棍',
+          availableSlots: '[]',
         },
       ],
     })

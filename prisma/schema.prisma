@@ -58,6 +58,7 @@ model LocationImage {
   locationId          String
   imageIndex          Int
   description         String?                  @db.Text
+  availableSlots      String?                  @db.Text
   imageUrl            String?                  @db.Text
   isSelected          Boolean                  @default(false)
   createdAt           DateTime                 @default(now())
@@ -899,6 +900,7 @@ model GlobalLocationImage {
   locationId          String
   imageIndex          Int
   description         String?  @db.Text
+  availableSlots      String?  @db.Text
   imageUrl            String?  @db.Text
   imageMediaId        String?
   imageMedia          MediaObject? @relation("GlobalLocationImageMedia", fields: [imageMediaId], references: [id], onDelete: SetNull)

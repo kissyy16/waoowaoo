@@ -17,6 +17,7 @@ import { Link, useRouter } from '@/i18n/navigation'
 import { apiFetch } from '@/lib/api-fetch'
 import { expandHomeStory } from '@/lib/home/ai-story-expand'
 import { createHomeProjectLaunch } from '@/lib/home/create-project-launch'
+import { formatDefaultProjectTimestamp } from '@/lib/projects/default-name'
 import { HOME_QUICK_START_MIN_ROWS } from '@/lib/ui/textarea-height'
 import AiWriteModal from '@/components/home/AiWriteModal'
 
@@ -52,6 +53,7 @@ export default function HomePage() {
   const [artStyle, setArtStyle] = useState('american-comic')
   const [stylePresetValue, setStylePresetValue] = useState<string>(DEFAULT_STYLE_PRESET_VALUE)
   const [createLoading, setCreateLoading] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   const [aiWriteOpen, setAiWriteOpen] = useState(false)
   const [aiWriteLoading, setAiWriteLoading] = useState(false)
 
@@ -92,12 +94,15 @@ export default function HomePage() {
   // 创建项目并跳转
   const handleCreate = async () => {
     if (!inputValue.trim() || createLoading) return
+    setCreateError(null)
     setCreateLoading(true)
     try {
       const storyText = inputValue.trim()
       const result = await createHomeProjectLaunch({
         apiFetch,
-        projectName: storyText.slice(0, 50),
+        projectName: t('defaultProjectName', {
+          timestamp: formatDefaultProjectTimestamp(new Date()),
+        }),
         storyText,
         videoRatio,
         artStyle,
@@ -107,7 +112,7 @@ export default function HomePage() {
       router.push(result.target)
     } catch (error) {
       const message = error instanceof Error ? error.message : t('createFailed')
-      window.alert(message)
+      setCreateError(message)
     } finally {
       setCreateLoading(false)
     }
@@ -245,9 +250,15 @@ export default function HomePage() {
 
             <StoryInputComposer
               value={inputValue}
-              onValueChange={setInputValue}
+              onValueChange={(nextValue) => {
+                setInputValue(nextValue)
+                if (createError) {
+                  setCreateError(null)
+                }
+              }}
               placeholder={t('inputPlaceholder')}
               minRows={HOME_QUICK_START_MIN_ROWS}
+              textareaClassName="px-0 pt-0 pb-3 align-top"
               videoRatio={videoRatio}
               onVideoRatioChange={setVideoRatio}
               ratioOptions={ratioOptions}
@@ -286,6 +297,11 @@ export default function HomePage() {
                   </span>
                 </button>
               )}
+              footer={createError ? (
+                <p className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-600">
+                  {createError}
+                </p>
+              ) : null}
             />
           </div>
         </div>

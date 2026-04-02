@@ -26,15 +26,20 @@ vi.mock('@/components/Navbar', () => ({
 vi.mock('@/components/story-input/StoryInputComposer', () => ({
   default: ({
     minRows,
+    textareaClassName,
     primaryAction,
     secondaryActions,
   }: {
     minRows: number
+    textareaClassName?: string
     primaryAction: React.ReactNode
     secondaryActions?: React.ReactNode
   }) => createElement(
     'section',
-    { 'data-min-rows': String(minRows) },
+    {
+      'data-min-rows': String(minRows),
+      'data-textarea-class': textareaClassName,
+    },
     secondaryActions,
     primaryAction,
     'StoryInputComposer',
@@ -103,5 +108,6 @@ describe('HomePage quick-start input', () => {
     expect(HOME_QUICK_START_MIN_ROWS).toBe(3)
     expect(html).toContain('StoryInputComposer')
     expect(html).toContain('data-min-rows="3"')
+    expect(html).toContain('data-textarea-class="px-0 pt-0 pb-3 align-top"')
   })
 })

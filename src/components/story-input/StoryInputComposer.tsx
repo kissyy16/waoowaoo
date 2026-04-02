@@ -109,7 +109,7 @@ export default function StoryInputComposer({
 
   return (
     <div className="relative w-full glass-surface-elevated rounded-2xl">
-      <div className="p-6 pb-0">
+      <div className="p-6 pb-4">
         {topRight && (
           <div className="mb-3 flex items-center justify-end">
             {topRight}

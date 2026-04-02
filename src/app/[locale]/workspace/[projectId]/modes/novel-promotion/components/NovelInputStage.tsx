@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import '@/styles/animations.css'
 import AiWriteModal from '@/components/home/AiWriteModal'
+import LongTextDetectionPrompt from '@/components/story-input/LongTextDetectionPrompt'
 import StoryInputComposer from '@/components/story-input/StoryInputComposer'
 import { ART_STYLES, VIDEO_RATIOS } from '@/lib/constants'
 import TaskStatusInline from '@/components/task/TaskStatusInline'
@@ -197,7 +198,7 @@ export default function NovelInputStage({
           stylePresetValue={stylePresetValue}
           onStylePresetChange={setStylePresetValue}
           stylePresetOptions={STYLE_PRESETS}
-          textareaClassName="text-base p-5 pb-3"
+          textareaClassName="px-0 pt-0 pb-3 align-top"
           primaryAction={(
             <button
               onClick={handleStartClick}
@@ -285,88 +286,29 @@ export default function NovelInputStage({
         </div>
       )}
 
-      {/* 长文本检测 — 智能分集强引导弹窗 */}
-      {showLongTextPrompt && (
-        <div className="fixed inset-0 glass-overlay flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="w-full max-w-lg mx-4 relative">
-            {/* 渐变描边外壳 */}
-            <div
-              className="rounded-2xl p-[1.5px]"
-              style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4)' }}
-            >
-              <div className="glass-surface-modal rounded-2xl p-6 space-y-5">
-                {/* 标题行 */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.15))' }}
-                  >
-                    <AppIcon name="sparkles" className="w-5 h-5 text-[#7c3aed]" />
-                  </div>
-                  <h3 className="text-lg font-bold text-[var(--glass-text-primary)]">
-                    {t('storyInput.longTextDetection.title')}
-                  </h3>
-                </div>
-
-                {/* 描述 */}
-                <p className="text-sm text-[var(--glass-text-secondary)] leading-relaxed">
-                  {t('storyInput.longTextDetection.description', { count: localText.trim().length.toLocaleString() })}
-                </p>
-
-                {/* 强烈推荐文案 */}
-                <div
-                  className="p-4 rounded-xl text-sm leading-relaxed"
-                  style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(139,92,246,0.08))' }}
-                >
-                  <p
-                    className="font-semibold"
-                    style={{
-                      background: 'linear-gradient(135deg, #3b82f6, #7c3aed)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
-                    {t('storyInput.longTextDetection.strongRecommend')}
-                  </p>
-                </div>
-
-                {/* 按钮区域 */}
-                <div className="flex flex-col gap-3 pt-1">
-                  {/* 智能分集 — 主按钮 */}
-                  <button
-                    onClick={() => {
-                      setShowLongTextPrompt(false)
-                      onSmartSplit?.(localText)
-                    }}
-                    className="w-full py-3.5 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 transition-all hover:opacity-90 active:scale-[0.98]"
-                    style={{ background: 'linear-gradient(135deg, #3b82f6, #7c3aed)' }}
-                  >
-                    <AppIcon name="sparkles" className="w-5 h-5" />
-                    <span>{t('storyInput.longTextDetection.smartSplit')}</span>
-                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">
-                      {t('storyInput.longTextDetection.smartSplitRecommend')}
-                    </span>
-                  </button>
-
-                  {/* 直接创作 — 弱化按钮 */}
-                  <button
-                    onClick={() => {
-                      setShowLongTextPrompt(false)
-                      onNext()
-                    }}
-                    className="w-full py-2.5 text-sm text-[var(--glass-text-tertiary)] hover:text-[var(--glass-text-secondary)] transition-colors"
-                  >
-                    {t('storyInput.longTextDetection.continueAnyway')}
-                    <span className="text-xs ml-1 opacity-60">
-                      — {t('storyInput.longTextDetection.singleEpisodeWarning')}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <LongTextDetectionPrompt
+        open={showLongTextPrompt}
+        copy={{
+          title: t('storyInput.longTextDetection.title'),
+          description: t('storyInput.longTextDetection.description', {
+            count: localText.trim().length.toLocaleString(),
+          }),
+          strongRecommend: t('storyInput.longTextDetection.strongRecommend'),
+          smartSplitLabel: t('storyInput.longTextDetection.smartSplit'),
+          smartSplitBadge: t('storyInput.longTextDetection.smartSplitRecommend'),
+          continueLabel: t('storyInput.longTextDetection.continueAnyway'),
+          continueHint: t('storyInput.longTextDetection.singleEpisodeWarning'),
+        }}
+        onClose={() => setShowLongTextPrompt(false)}
+        onSmartSplit={() => {
+          setShowLongTextPrompt(false)
+          onSmartSplit?.(localText)
+        }}
+        onContinue={() => {
+          setShowLongTextPrompt(false)
+          onNext()
+        }}
+      />
     </div>
   )
 }

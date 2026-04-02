@@ -1,6 +1,4 @@
-interface ApiErrorPayload {
-  error?: string | { message?: string } | null
-}
+import { readApiErrorMessage } from '@/lib/api/read-error-message'
 
 interface ProjectCreationPayload {
   project?: {
@@ -56,21 +54,6 @@ function readNestedString(
   return typeof value === 'string' && value.trim() ? value : null
 }
 
-async function readApiErrorMessage(response: Response, fallback: string): Promise<string> {
-  try {
-    const payload = await response.json() as ApiErrorPayload
-    if (typeof payload?.error === 'string' && payload.error.trim()) {
-      return payload.error
-    }
-    if (payload?.error && typeof payload.error === 'object' && typeof payload.error.message === 'string' && payload.error.message.trim()) {
-      return payload.error.message
-    }
-  } catch {
-    // Keep the explicit fallback when the backend does not return JSON.
-  }
-  return fallback
-}
-
 async function readProjectId(response: Response): Promise<string> {
   const payload = await response.json() as ProjectCreationPayload
   const projectId = readNestedString(readObject(payload), 'project', 'id')
@@ -112,7 +95,6 @@ export async function createHomeProjectLaunch({
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name: projectName,
-      description: storyText,
     }),
   })
 

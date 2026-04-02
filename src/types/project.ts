@@ -1,4 +1,5 @@
 import type { CapabilitySelections } from '@/lib/model-config-contract'
+import type { LocationAvailableSlot } from '@/lib/location-available-slots'
 
 // ============================================
 // 基础项目类型
@@ -80,6 +81,7 @@ export interface LocationImage {
   locationId?: string               // 可选，API 响应可能不包含
   imageIndex: number              // 图片索引：0, 1, 2
   description: string | null
+  availableSlots?: LocationAvailableSlot[] | null
   imageUrl: string | null
   media?: MediaRef | null
   previousImageUrl: string | null // 上一次的图片URL（用于撤回）
