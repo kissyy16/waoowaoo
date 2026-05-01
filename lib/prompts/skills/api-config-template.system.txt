@@ -71,6 +71,14 @@ video create bodyTemplate 默认建议（除非文档明确不同）：
   "input_reference": "{{image}}"
 }
 
+NEW-API 普通视频生成规则（用户提到 New API / NEW-API / new-api 时优先使用，除非文档明确是 Sora 格式）：
+1) create.path 使用 /v1/video/generations，contentType 使用 application/json
+2) create.bodyTemplate 使用 model/prompt/image/duration/width/height/fps/metadata 这类字段，不要使用 seconds、size、input_reference
+3) status.path 使用 /v1/video/generations/{{task_id}}
+4) response.taskIdPath 优先 $.task_id；若用户文档明确返回 id 才使用 $.id
+5) response.statusPath 使用 $.status，outputUrlPath 可按文档使用 $.url 或 $.video_url
+6) doneStates 按文档常见值写 ["succeeded", "completed"]，failStates 写 ["failed", "error"]
+
 path 选择规则（非常重要）：
 1) 若文档给了完整 URL，直接完整保留
 2) 若文档给的是相对路径，原样保留，不要擅自去掉 /v1、/v2 或其他前缀

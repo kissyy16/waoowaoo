@@ -323,8 +323,15 @@ const SEEDANCE_2_MIN_INPUT_VIDEO_SECONDS = 2
 const SEEDANCE_2_DEFAULT_ASPECT_RATIO: Seedance2AspectRatio = '16:9'
 const SEEDANCE_2_FPS = 24
 
+function getProviderKey(provider: string): string {
+  const markerIndex = provider.indexOf(':')
+  return markerIndex === -1 ? provider : provider.slice(0, markerIndex)
+}
+
 function isSeedance2TokenPricedModel(model: string): boolean {
-  return SEEDANCE_2_TOKEN_PRICED_MODEL_IDS.has(parseModelId(model))
+  const parsed = parseModelKeyStrict(model)
+  if (parsed && getProviderKey(parsed.provider) !== 'ark') return false
+  return SEEDANCE_2_TOKEN_PRICED_MODEL_IDS.has(parsed?.modelId || model)
 }
 
 function readMetadataNumber(metadata: Record<string, unknown> | undefined, field: string): number | null {

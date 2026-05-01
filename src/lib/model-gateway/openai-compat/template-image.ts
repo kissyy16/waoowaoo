@@ -36,7 +36,22 @@ function resolveModelRef(request: OpenAICompatImageRequest): string {
   throw new Error('OPENAI_COMPAT_IMAGE_MODEL_REF_REQUIRED')
 }
 
-function readTemplateOutputUrls(value: unknown): string[] {
+function toMimeFromOutputFormat(outputFormat: unknown): string {
+  if (typeof outputFormat === 'string') {
+    const normalized = outputFormat.trim().toLowerCase()
+    if (normalized === 'jpeg' || normalized === 'jpg') return 'image/jpeg'
+    if (normalized === 'webp') return 'image/webp'
+  }
+  return 'image/png'
+}
+
+function toImageDataUrl(base64: string, mimeType: string): string {
+  const trimmed = base64.trim()
+  if (trimmed.startsWith('data:')) return trimmed
+  return `data:${mimeType};base64,${trimmed}`
+}
+
+function readTemplateOutputUrls(value: unknown, mimeType: string): string[] {
   if (!Array.isArray(value)) return []
   const urls: string[] = []
   for (const item of value) {
@@ -48,6 +63,11 @@ function readTemplateOutputUrls(value: unknown): string[] {
     const url = (item as { url?: unknown }).url
     if (typeof url === 'string' && url.trim()) {
       urls.push(url.trim())
+      continue
+    }
+    const b64Json = (item as { b64_json?: unknown }).b64_json
+    if (typeof b64Json === 'string' && b64Json.trim()) {
+      urls.push(toImageDataUrl(b64Json, mimeType))
     }
   }
   return urls
@@ -77,6 +97,7 @@ export async function generateImageViaOpenAICompatTemplate(
     size: typeof request.options?.size === 'string' ? request.options.size : undefined,
     extra: request.options,
   })
+  const mimeType = toMimeFromOutputFormat(request.options?.outputFormat)
 
   const createRequest = await buildRenderedTemplateRequest({
     baseUrl: config.baseUrl,
@@ -101,6 +122,7 @@ export async function generateImageViaOpenAICompatTemplate(
   if (request.template.mode === 'sync') {
     const outputUrls = readTemplateOutputUrls(
       readJsonPath(payload, request.template.response.outputUrlsPath),
+      mimeType,
     )
     if (outputUrls.length > 0) {
       const first = outputUrls[0]
@@ -113,9 +135,13 @@ export async function generateImageViaOpenAICompatTemplate(
 
     const outputUrl = readJsonPath(payload, request.template.response.outputUrlPath)
     if (typeof outputUrl === 'string' && outputUrl.trim().length > 0) {
+      const pathHint = request.template.response.outputUrlPath || ''
+      const imageUrl = pathHint.includes('b64')
+        ? toImageDataUrl(outputUrl, mimeType)
+        : outputUrl.trim()
       return {
         success: true,
-        imageUrl: outputUrl.trim(),
+        imageUrl,
       }
     }
     throw new Error('OPENAI_COMPAT_IMAGE_TEMPLATE_OUTPUT_NOT_FOUND')

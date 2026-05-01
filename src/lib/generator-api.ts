@@ -16,6 +16,9 @@ import {
     generateImageViaOpenAICompatTemplate,
     generateVideoViaOpenAICompat,
     generateVideoViaOpenAICompatTemplate,
+    generateVideoViaNewApiCompat,
+    isNewApiSeedanceVideoModel,
+    isOpenAISoraStyleVideoTemplate,
     resolveModelGatewayRoute,
 } from './model-gateway'
 import { generateBailianAudio, generateBailianImage, generateBailianVideo } from './providers/bailian'
@@ -229,6 +232,30 @@ export async function generateVideo(
     const { prompt, ...providerOptions } = options || {}
     if (gatewayRoute === 'openai-compat') {
         const compatTemplate = selection.compatMediaTemplate
+        // This detects the self-hosted/openai-compatible provider type, not the user's display name.
+        const shouldUseNewApiSeedanceVideo =
+            providerKey === 'openai-compatible'
+            && isNewApiSeedanceVideoModel(selection.modelId)
+            && (!compatTemplate || isOpenAISoraStyleVideoTemplate(compatTemplate))
+
+        if (shouldUseNewApiSeedanceVideo) {
+            return await generateVideoViaNewApiCompat({
+                userId,
+                providerId: selection.provider,
+                modelId: selection.modelId,
+                modelKey: selection.modelKey,
+                imageUrl,
+                prompt: prompt || '',
+                options: {
+                    ...providerOptions,
+                    provider: selection.provider,
+                    modelId: selection.modelId,
+                    modelKey: selection.modelKey,
+                },
+                profile: 'openai-compatible',
+            })
+        }
+
         if (providerKey === 'openai-compatible' && !compatTemplate) {
             throw new Error(`MODEL_COMPAT_MEDIA_TEMPLATE_REQUIRED: ${selection.modelKey}`)
         }

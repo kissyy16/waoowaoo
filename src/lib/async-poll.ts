@@ -19,7 +19,13 @@ import { logInfo as _ulogInfo, logError as _ulogError } from '@/lib/logging/core
 import { queryFalStatus } from './async-submit'
 import { queryGeminiBatchStatus, querySeedanceVideoStatus, queryGoogleVideoStatus } from './async-task-utils'
 import { getProviderConfig, getUserModels } from './api-config'
-import { buildRenderedTemplateRequest, buildTemplateVariables, normalizeResponseJson, readJsonPath } from './openai-compat-template-runtime'
+import {
+    buildRenderedTemplateRequest,
+    buildTemplateVariables,
+    normalizeResponseJson,
+    readJsonPath,
+    resolveTemplateEndpointUrl,
+} from './openai-compat-template-runtime'
 import { composeModelKey } from './model-config-contract'
 
 const OPENAI_COMPAT_PROVIDER_PREFIX = 'openai-compatible:'
@@ -48,7 +54,7 @@ function getErrorMessage(error: unknown): string {
  * 解析 externalId 获取 provider、type 和请求信息
  */
 export function parseExternalId(externalId: string): {
-    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'BAILIAN' | 'SILICONFLOW' | 'UNKNOWN'
+    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'NEWAPI' | 'BAILIAN' | 'SILICONFLOW' | 'UNKNOWN'
     type: 'VIDEO' | 'IMAGE' | 'BATCH' | 'UNKNOWN'
     endpoint?: string
     requestId: string
@@ -182,6 +188,22 @@ export function parseExternalId(externalId: string): {
         }
     }
 
+    if (externalId.startsWith('NEWAPI:')) {
+        const parts = externalId.split(':')
+        const type = parts[1]
+        const providerToken = parts[2]
+        const requestId = parts.slice(3).join(':')
+        if (type !== 'VIDEO' || !providerToken || !requestId) {
+            throw new Error(`无效 NEWAPI externalId: "${externalId}"，应为 NEWAPI:VIDEO:providerToken:taskId`)
+        }
+        return {
+            provider: 'NEWAPI',
+            type: 'VIDEO',
+            providerToken,
+            requestId,
+        }
+    }
+
     if (externalId.startsWith('BAILIAN:')) {
         const parts = externalId.split(':')
         const type = parts[1]
@@ -212,7 +234,7 @@ export function parseExternalId(externalId: string): {
 
     throw new Error(
         `无法识别的 externalId 格式: "${externalId}". ` +
-        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId`
+        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, NEWAPI:VIDEO:providerToken:taskId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId`
     )
 }
 
@@ -248,6 +270,8 @@ export async function pollAsyncTask(
             return await pollOpenAIVideoTask(parsed.requestId, userId, parsed.providerToken)
         case 'OCOMPAT':
             return await pollOCompatTask(parsed.type, parsed.requestId, userId, parsed.providerToken, parsed.modelKeyToken)
+        case 'NEWAPI':
+            return await pollNewApiVideoTask(parsed.requestId, userId, parsed.providerToken)
         case 'BAILIAN':
             return await pollBailianTask(parsed.requestId, userId)
         case 'SILICONFLOW':
@@ -407,6 +431,146 @@ async function pollOCompatTask(
         }
     }
     return { status: 'pending' }
+}
+
+function readFirstStringPath(payload: unknown, paths: string[]): string {
+    for (const path of paths) {
+        const value = readJsonPath(payload, path)
+        if (typeof value === 'string' && value.trim()) return value.trim()
+    }
+    return ''
+}
+
+function extractNewApiPollError(payload: unknown): string {
+    const message = readFirstStringPath(payload, [
+        '$.error.message',
+        '$.message',
+        '$.message_zh',
+        '$.error',
+    ])
+    if (message) return message
+    if (payload && typeof payload === 'object') {
+        try {
+            const snippet = JSON.stringify(payload).slice(0, 300)
+            if (snippet) return snippet
+        } catch {
+            return ''
+        }
+    }
+    return ''
+}
+
+async function pollNewApiVideoTask(
+    taskId: string,
+    userId: string,
+    providerToken?: string,
+): Promise<PollResult> {
+    if (!providerToken) throw new Error('NEWAPI_PROVIDER_TOKEN_MISSING')
+    const providerId = decodeProviderId(providerToken)
+    const config = await getProviderConfig(userId, providerId)
+    if (!config.baseUrl) throw new Error(`PROVIDER_BASE_URL_MISSING: ${providerId}`)
+
+    const pollUrl = resolveTemplateEndpointUrl(
+        config.baseUrl,
+        `/video/generations/${encodeURIComponent(taskId)}`,
+    )
+    const response = await fetch(pollUrl, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${config.apiKey}` },
+    })
+    const rawText = await response.text().catch(() => '')
+    const payload = normalizeResponseJson(rawText)
+
+    if (!response.ok) {
+        const message = extractNewApiPollError(payload)
+        return {
+            status: 'failed',
+            error: `NEWAPI status request failed: ${response.status}${message ? ` ${message}` : ''}`,
+        }
+    }
+
+    const status = readFirstStringPath(payload, [
+        '$.status',
+        '$.data.status',
+        '$.task.status',
+        '$.result.status',
+        '$.output.status',
+    ]).toLowerCase()
+    if (!status) {
+        return {
+            status: 'failed',
+            error: 'NEWAPI status path resolve failed',
+        }
+    }
+
+    if (status === 'queued' || status === 'in_progress' || status === 'processing' || status === 'pending') {
+        return { status: 'pending' }
+    }
+
+    if (status === 'failed' || status === 'error' || status === 'cancelled' || status === 'canceled') {
+        return {
+            status: 'failed',
+            error: extractNewApiPollError(payload) || `NEWAPI task failed: ${status}`,
+        }
+    }
+
+    if (status !== 'completed' && status !== 'succeeded' && status !== 'success') {
+        return { status: 'pending' }
+    }
+
+    const videoUrl = readFirstStringPath(payload, [
+        '$.video_url',
+        '$.url',
+        '$.download_url',
+        '$.content_url',
+        '$.video.url',
+        '$.video.video_url',
+        '$.content.url',
+        '$.content.video_url',
+        '$.data.video_url',
+        '$.data.url',
+        '$.data.download_url',
+        '$.data.content_url',
+        '$.data.video.url',
+        '$.data.video.video_url',
+        '$.data.content.url',
+        '$.data.content.video_url',
+        '$.output.video_url',
+        '$.output.url',
+        '$.output.video.url',
+        '$.output.video.video_url',
+        '$.result.video_url',
+        '$.result.url',
+        '$.result.video.url',
+        '$.result.video.video_url',
+        '$.data.output.video_url',
+        '$.data.output.url',
+        '$.data.output.video.url',
+        '$.data.output.video.video_url',
+        '$.data.result.video_url',
+        '$.data.result.url',
+        '$.data.result.video.url',
+        '$.data.result.video.video_url',
+        '$.videos[0].url',
+        '$.videos[0].video_url',
+        '$.data.videos[0].url',
+        '$.data.videos[0].video_url',
+        '$.data[0].video_url',
+        '$.data[0].url',
+        '$.data[0].video.url',
+    ])
+    if (!videoUrl) {
+        return {
+            status: 'failed',
+            error: 'NEWAPI completed but output URL missing',
+        }
+    }
+
+    return {
+        status: 'completed',
+        videoUrl,
+        resultUrl: videoUrl,
+    }
 }
 
 async function pollOpenAIVideoTask(

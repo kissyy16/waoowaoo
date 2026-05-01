@@ -71,6 +71,27 @@ describe('billing/task-policy', () => {
     expect(info.quantity).toBe(1)
   })
 
+  it('does not apply Ark Seedance 2 capability pricing to openai-compatible video models', () => {
+    const info = expectBillableInfo(buildDefaultTaskBillingInfo(TASK_TYPE.VIDEO_PANEL, {
+      videoModel: 'openai-compatible:custom::doubao-seedance-2-0-260128',
+    }))
+
+    expect(info.apiType).toBe('video')
+    expect(info.model).toBe('openai-compatible:custom::doubao-seedance-2-0-260128')
+    expect(info.maxFrozenCost).toBe(0)
+  })
+
+  it('keeps Ark Seedance 2 video capability validation strict', () => {
+    expect(() => buildDefaultTaskBillingInfo(TASK_TYPE.VIDEO_PANEL, {
+      videoModel: 'ark::doubao-seedance-2-0-260128',
+      generationOptions: {
+        resolution: '1080p',
+        duration: 5,
+        aspectRatio: '16:9',
+      },
+    })).toThrow('Unsupported video resolution pricing')
+  })
+
   it('uses explicit lip sync model from payload', () => {
     const info = expectBillableInfo(buildDefaultTaskBillingInfo(TASK_TYPE.LIP_SYNC, {
       lipSyncModel: 'vidu::vidu-lipsync',

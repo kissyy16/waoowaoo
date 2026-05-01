@@ -22,6 +22,7 @@ const generateImageViaOpenAICompatMock = vi.hoisted(() => vi.fn(async () => ({ s
 const generateVideoViaOpenAICompatMock = vi.hoisted(() => vi.fn(async () => ({ success: true, videoUrl: 'video' })))
 const generateImageViaOpenAICompatTemplateMock = vi.hoisted(() => vi.fn(async () => ({ success: true, imageUrl: 'image' })))
 const generateVideoViaOpenAICompatTemplateMock = vi.hoisted(() => vi.fn(async () => ({ success: true, videoUrl: 'video' })))
+const generateVideoViaNewApiCompatMock = vi.hoisted(() => vi.fn(async () => ({ success: true, async: true, externalId: 'NEWAPI:VIDEO:provider:task-1' })))
 
 vi.mock('@/lib/api-config', () => ({
   resolveModelSelection: resolveModelSelectionMock,
@@ -35,6 +36,9 @@ vi.mock('@/lib/model-gateway', () => ({
   generateVideoViaOpenAICompat: generateVideoViaOpenAICompatMock,
   generateImageViaOpenAICompatTemplate: generateImageViaOpenAICompatTemplateMock,
   generateVideoViaOpenAICompatTemplate: generateVideoViaOpenAICompatTemplateMock,
+  generateVideoViaNewApiCompat: generateVideoViaNewApiCompatMock,
+  isNewApiSeedanceVideoModel: (modelId: string) => modelId === 'doubao-seedance-2.0',
+  isOpenAISoraStyleVideoTemplate: () => false,
 }))
 
 vi.mock('@/lib/generators/factory', () => ({
@@ -99,6 +103,33 @@ describe('generator-api requires compat media template for openai-compatible med
       generateVideo('user-1', 'openai-compatible:oa-1::veo3.1', 'https://example.com/a.png', { prompt: 'animate' }),
     ).rejects.toThrow('MODEL_COMPAT_MEDIA_TEMPLATE_REQUIRED')
 
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+  })
+
+  it('routes openai-compatible New API Seedance video without a custom template', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'doubao-seedance-2.0',
+      modelKey: 'openai-compatible:oa-1::doubao-seedance-2.0',
+      mediaType: 'video',
+      compatMediaTemplate: undefined,
+    })
+
+    const result = await generateVideo(
+      'user-1',
+      'openai-compatible:oa-1::doubao-seedance-2.0',
+      'https://example.com/a.png',
+      { prompt: 'animate' },
+    )
+
+    expect(result.success).toBe(true)
+    expect(generateVideoViaNewApiCompatMock).toHaveBeenCalledWith(expect.objectContaining({
+      providerId: 'openai-compatible:oa-1',
+      modelId: 'doubao-seedance-2.0',
+      imageUrl: 'https://example.com/a.png',
+      prompt: 'animate',
+    }))
     expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
     expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
   })

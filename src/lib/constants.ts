@@ -162,6 +162,13 @@ export const ART_STYLES = [
     preview: '实',
     promptZh: '真实电影级画面质感，真实现实场景，色彩饱满通透，画面干净精致，真实感',
     promptEn: 'Realistic cinematic look, real-world scene fidelity, rich transparent colors, clean and refined image quality.'
+  },
+  {
+    value: 'pixar-3d',
+    label: '皮克斯3D',
+    preview: '3D',
+    promptZh: '皮克斯动画质感的3D卡通电影风格，角色表情生动，造型圆润可爱，柔和电影级灯光，细腻材质，明亮温暖色彩，高质量3D渲染。',
+    promptEn: 'Pixar-style 3D animated film look, expressive characters, rounded appealing shapes, soft cinematic lighting, detailed materials, bright warm colors, high-quality 3D render.'
   }
 ]
 
