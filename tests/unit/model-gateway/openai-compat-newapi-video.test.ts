@@ -22,10 +22,14 @@ describe('openai-compat New API video adapter', () => {
   })
 
   it('posts JSON to New API video generation endpoint and returns NEWAPI externalId', async () => {
-    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => new Response(JSON.stringify({
-      task_id: 'task-123',
-      status: 'queued',
-    }), { status: 200 }))
+    const fetchMock = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      void url
+      void init
+      return new Response(JSON.stringify({
+        task_id: 'task-123',
+        status: 'queued',
+      }), { status: 200 })
+    })
     globalThis.fetch = fetchMock as unknown as typeof fetch
 
     const result = await generateVideoViaNewApiCompat({
