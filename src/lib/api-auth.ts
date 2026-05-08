@@ -12,6 +12,7 @@ import { withPrismaRetry } from '@/lib/prisma-retry'
 import { extractModelKey } from '@/lib/config-service'
 import { getErrorSpec, type UnifiedErrorCode } from '@/lib/errors/codes'
 import { getLogContext, setLogContext } from '@/lib/logging/context'
+import { AI_TRAINING_SSO_PROVIDER } from '@/lib/sso/constants'
 import { isAdminRole, isTruthyEnv, normalizeUserRole, type UserRole } from '@/lib/user-role'
 
 // ============================================================
@@ -71,13 +72,19 @@ async function resolveAuthenticatedSessionAccess(session: AuthSession): Promise<
             name: true,
             email: true,
             role: true,
+            accounts: {
+                where: { provider: AI_TRAINING_SSO_PROVIDER },
+                select: { id: true },
+                take: 1,
+            },
         },
     })
 
     if (!currentUser) return unauthorized()
 
     const role = normalizeUserRole(currentUser.role)
-    if (!isTruthyEnv(process.env.AUTH_ALLOW_NON_ADMIN_LOGIN) && !isAdminRole(role)) {
+    const hasAiTrainingSsoAccount = Array.isArray(currentUser.accounts) && currentUser.accounts.length > 0
+    if (!isTruthyEnv(process.env.AUTH_ALLOW_NON_ADMIN_LOGIN) && !isAdminRole(role) && !hasAiTrainingSsoAccount) {
         return forbidden('Admin privileges required')
     }
 

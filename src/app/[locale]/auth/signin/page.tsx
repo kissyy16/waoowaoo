@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { signIn } from "next-auth/react"
 import { useTranslations } from 'next-intl'
 import Navbar from "@/components/Navbar"
@@ -14,6 +14,13 @@ export default function SignIn() {
   const [error, setError] = useState("")
   const router = useRouter()
   const t = useTranslations('auth')
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
+    if (searchParams.get('error') === 'SsoTicketInvalid') {
+      setError(t('ssoTicketInvalid'))
+    }
+  }, [t])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

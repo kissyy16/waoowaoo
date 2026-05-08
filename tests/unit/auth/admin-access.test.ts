@@ -176,4 +176,48 @@ describe('admin-only auth access', () => {
       },
     })
   })
+
+  it('allows regular sessions linked to AI training SSO in private mode', async () => {
+    getServerSessionMock.mockResolvedValue({ user: { id: 'sso-user-1', role: 'user' } })
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'sso-user-1',
+      name: 'sso-user',
+      email: null,
+      role: 'user',
+      accounts: [{ id: 'account-1' }],
+    })
+
+    const { requireUserAuth } = await import('@/lib/api-auth')
+    const result = await requireUserAuth()
+
+    expect(result).toEqual({
+      session: {
+        user: {
+          id: 'sso-user-1',
+          name: 'sso-user',
+          email: null,
+          role: 'user',
+        },
+      },
+    })
+  })
+
+  it('does not grant admin access to regular AI training SSO sessions', async () => {
+    getServerSessionMock.mockResolvedValue({ user: { id: 'sso-user-1', role: 'user' } })
+    prismaMock.user.findUnique.mockResolvedValue({
+      id: 'sso-user-1',
+      name: 'sso-user',
+      email: null,
+      role: 'user',
+      accounts: [{ id: 'account-1' }],
+    })
+
+    const { requireAdminAuth, isErrorResponse } = await import('@/lib/api-auth')
+    const result = await requireAdminAuth()
+
+    expect(isErrorResponse(result)).toBe(true)
+    if (isErrorResponse(result)) {
+      expect(result.status).toBe(403)
+    }
+  })
 })

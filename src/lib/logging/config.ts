@@ -28,7 +28,7 @@ export const LOG_CONFIG = {
   auditEnabled: parseBoolean(process.env.LOG_AUDIT_ENABLED, true),
   format: (process.env.LOG_FORMAT || 'json').trim().toLowerCase(),
   service: (process.env.LOG_SERVICE || 'waoowaoo').trim(),
-  redactKeys: (process.env.LOG_REDACT_KEYS || 'password,token,apiKey,apikey,authorization,cookie,secret,access_token,refresh_token')
+  redactKeys: (process.env.LOG_REDACT_KEYS || 'password,token,ticket,apiKey,apikey,authorization,cookie,secret,access_token,refresh_token,phone,mobile,email,mail')
     .split(',')
     .map((k) => k.trim().toLowerCase())
     .filter(Boolean),
