@@ -5,5 +5,8 @@
   "downloadLogs": "下载日志",
   "signin": "登录",
   "signup": "注册",
-  "logout": "退出登录"
+  "logout": "退出登录",
+  "logoutConfirmTitle": "确认退出登录？",
+  "logoutConfirmMessage": "退出后需要重新登录才能继续使用工作区。",
+  "logoutConfirmAction": "确认退出"
 }

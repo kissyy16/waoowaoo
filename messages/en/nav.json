@@ -5,5 +5,8 @@
   "downloadLogs": "Download Logs",
   "signin": "Sign In",
   "signup": "Sign Up",
-  "logout": "Logout"
+  "logout": "Logout",
+  "logoutConfirmTitle": "Log out?",
+  "logoutConfirmMessage": "You will need to sign in again to keep using the workspace.",
+  "logoutConfirmAction": "Log out"
 }
