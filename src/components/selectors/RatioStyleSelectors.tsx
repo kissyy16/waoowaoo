@@ -7,7 +7,7 @@
  * 使用场景：首页、项目故事输入页
  */
 import { createPortal } from 'react-dom'
-import { useState, useRef, useEffect, useLayoutEffect, useCallback, type CSSProperties } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, type CSSProperties } from 'react'
 import { AppIcon } from '@/components/ui/icons'
 
 const TRIGGER_CLASSNAME = 'glass-input-base flex h-10 w-full items-center justify-between gap-2 px-2.5 transition-colors'
@@ -15,8 +15,19 @@ const TRIGGER_TEXT_CLASSNAME = 'text-[13px] font-medium text-[var(--glass-text-p
 
 const VIEWPORT_EDGE_GAP = 8
 const DEFAULT_MAX_HEIGHT = 280
+const STYLE_RECENT_STORAGE_KEY = 'waoowaoo:recent-art-styles'
+const STYLE_RECENT_LIMIT = 6
 
-function useFloatingDropdown(isOpen: boolean, minWidth: number) {
+interface StyleOption {
+  value: string
+  label: string
+  recommended?: boolean
+  featured?: boolean
+  category?: string
+  keywords?: readonly string[]
+}
+
+function useFloatingDropdown(isOpen: boolean, minWidth: number, maxHeight = DEFAULT_MAX_HEIGHT) {
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [panelStyle, setPanelStyle] = useState<CSSProperties>({})
@@ -44,12 +55,12 @@ function useFloatingDropdown(isOpen: boolean, minWidth: number) {
       position: 'fixed',
       left,
       width,
-      maxHeight: Math.max(120, Math.min(DEFAULT_MAX_HEIGHT, availableSpace)),
+      maxHeight: Math.max(120, Math.min(maxHeight, availableSpace)),
       ...(openUpward
         ? { bottom: viewportHeight - rect.top + 4 }
         : { top: rect.bottom + 4 }),
     })
-  }, [minWidth])
+  }, [maxHeight, minWidth])
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -188,10 +199,14 @@ export function StyleSelector({
 }: {
   value: string
   onChange: (value: string) => void
-  options: { value: string; label: string; recommended?: boolean }[]
+  options: StyleOption[]
 }) {
   const [isOpen, setIsOpen] = useState(false)
-  const { triggerRef, panelRef, panelStyle } = useFloatingDropdown(isOpen, 320)
+  const [showAll, setShowAll] = useState(false)
+  const [searchText, setSearchText] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('全部')
+  const [recentValues, setRecentValues] = useState<string[]>([])
+  const { triggerRef, panelRef, panelStyle } = useFloatingDropdown(isOpen, showAll ? 680 : 360, showAll ? 540 : 320)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -206,7 +221,114 @@ export function StyleSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen, panelRef, triggerRef])
 
+  useEffect(() => {
+    if (!isOpen) {
+      setShowAll(false)
+      setSearchText('')
+      setCategoryFilter('全部')
+      return
+    }
+
+    try {
+      const raw = window.localStorage.getItem(STYLE_RECENT_STORAGE_KEY)
+      if (!raw) return
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return
+      const validValues = parsed.filter((item): item is string =>
+        typeof item === 'string' && options.some((option) => option.value === item),
+      )
+      setRecentValues(validValues.slice(0, STYLE_RECENT_LIMIT))
+    } catch {
+      setRecentValues([])
+    }
+  }, [isOpen, options])
+
   const selectedOption = options.find((o) => o.value === value) || options[0]
+  const featuredOptions = useMemo(() => {
+    const featured = options.filter((option) => option.featured || option.recommended)
+    return (featured.length > 0 ? featured : options).slice(0, 12)
+  }, [options])
+  const categories = useMemo(() => {
+    const names = options
+      .map((option) => option.category)
+      .filter((category): category is string => Boolean(category))
+    return ['全部', ...Array.from(new Set(names))]
+  }, [options])
+  const recentOptions = useMemo(() => {
+    return recentValues
+      .map((recentValue) => options.find((option) => option.value === recentValue))
+      .filter((option): option is StyleOption => Boolean(option))
+  }, [options, recentValues])
+  const filteredOptions = useMemo(() => {
+    const query = searchText.trim().toLowerCase()
+    return options.filter((option) => {
+      const matchesCategory = categoryFilter === '全部' || option.category === categoryFilter
+      if (!matchesCategory) return false
+      if (!query) return true
+
+      const haystack = [
+        option.label,
+        option.value,
+        option.category,
+        ...(option.keywords ?? []),
+      ].filter(Boolean).join(' ').toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [categoryFilter, options, searchText])
+  const groupedOptions = useMemo(() => {
+    return filteredOptions.reduce<Record<string, StyleOption[]>>((groups, option) => {
+      const category = option.category ?? '其他'
+      groups[category] = [...(groups[category] ?? []), option]
+      return groups
+    }, {})
+  }, [filteredOptions])
+
+  const selectOption = (nextValue: string) => {
+    onChange(nextValue)
+    setIsOpen(false)
+
+    const nextRecentValues = [
+      nextValue,
+      ...recentValues.filter((recentValue) => recentValue !== nextValue),
+    ].slice(0, STYLE_RECENT_LIMIT)
+    setRecentValues(nextRecentValues)
+    try {
+      window.localStorage.setItem(STYLE_RECENT_STORAGE_KEY, JSON.stringify(nextRecentValues))
+    } catch {
+      // localStorage 不可用时仅跳过最近使用记录。
+    }
+  }
+
+  const renderStyleButton = (option: StyleOption, compact = false) => {
+    const isSelected = value === option.value
+    return (
+      <button
+        key={option.value}
+        type="button"
+        onClick={() => selectOption(option.value)}
+        className={`flex items-center gap-2 rounded-xl border text-left transition-all ${
+          compact ? 'px-3 py-2' : 'p-3'
+        } ${
+          isSelected
+            ? 'border-[var(--glass-accent-from)] bg-[var(--glass-accent-from)]/5 shadow-sm'
+            : 'border-[var(--glass-stroke-soft)] hover:border-[var(--glass-stroke-strong)] hover:bg-[var(--glass-bg-surface-strong)]'
+        }`}
+      >
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold ${
+          isSelected
+            ? 'bg-[var(--glass-accent-from)] text-white'
+            : 'bg-[var(--glass-bg-muted)] text-[var(--glass-text-tertiary)]'
+        }`}>
+          {option.label.slice(0, 1)}
+        </span>
+        <span className={`min-w-0 truncate text-sm ${
+          isSelected ? 'font-semibold text-[var(--glass-accent-from)]' : 'text-[var(--glass-text-secondary)]'
+        }`}>
+          {option.label}
+        </span>
+      </button>
+    )
+  }
 
   return (
     <>
@@ -226,33 +348,116 @@ export function StyleSelector({
       {isOpen && typeof document !== 'undefined' && createPortal(
         <div
           ref={panelRef}
-          className="glass-surface-modal z-[9999] p-3"
+          className={`glass-surface-modal z-[9999] p-3 ${showAll ? 'overflow-y-auto app-scrollbar' : 'overflow-hidden'}`}
           style={panelStyle}
         >
-          <div className="grid grid-cols-2 gap-2">
-            {options.map((option) => {
-              const isSelected = value === option.value
-              return (
+          {showAll ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
                 <button
-                  key={option.value}
                   type="button"
-                  onClick={() => {
-                    onChange(option.value)
-                    setIsOpen(false)
-                  }}
-                  className={`flex items-center p-3 rounded-xl border text-left transition-all ${
-                    isSelected
-                      ? 'border-[var(--glass-accent-from)] bg-[var(--glass-accent-from)]/5 shadow-sm'
-                      : 'border-[var(--glass-stroke-soft)] hover:border-[var(--glass-stroke-strong)]'
-                  }`}
+                  onClick={() => setShowAll(false)}
+                  className="glass-btn-base h-9 shrink-0 px-3 text-xs"
                 >
-                  <span className={`text-sm whitespace-nowrap ${isSelected ? 'font-semibold text-[var(--glass-accent-from)]' : 'text-[var(--glass-text-secondary)]'}`}>
-                    {option.label}
-                  </span>
+                  <AppIcon name="chevronLeft" className="h-4 w-4" />
+                  热门
                 </button>
-              )
-            })}
-          </div>
+                <div className="glass-input-base flex h-9 min-w-0 flex-1 items-center gap-2 px-3">
+                  <AppIcon name="search" className="h-4 w-4 shrink-0 text-[var(--glass-text-tertiary)]" />
+                  <input
+                    value={searchText}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder="搜索风格"
+                    className="min-w-0 flex-1 bg-transparent text-sm text-[var(--glass-text-primary)] outline-none placeholder:text-[var(--glass-text-tertiary)]"
+                  />
+                  {searchText ? (
+                    <button
+                      type="button"
+                      onClick={() => setSearchText('')}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--glass-text-tertiary)] hover:bg-[var(--glass-bg-muted)] hover:text-[var(--glass-text-primary)]"
+                      aria-label="清空搜索"
+                    >
+                      <AppIcon name="close" className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {recentOptions.length > 0 && !searchText && categoryFilter === '全部' ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--glass-text-tertiary)]">
+                    <AppIcon name="clock" className="h-3.5 w-3.5" />
+                    最近使用
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {recentOptions.map((option) => renderStyleButton(option, true))}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex gap-2 overflow-x-auto pb-1 app-scrollbar">
+                {categories.map((category) => (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => setCategoryFilter(category)}
+                    className={`h-8 shrink-0 rounded-full border px-3 text-xs font-medium transition-all ${
+                      categoryFilter === category
+                        ? 'border-[var(--glass-accent-from)] bg-[var(--glass-accent-from)]/10 text-[var(--glass-accent-from)]'
+                        : 'border-[var(--glass-stroke-soft)] text-[var(--glass-text-secondary)] hover:border-[var(--glass-stroke-strong)]'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+
+              <div className="pr-1">
+                {filteredOptions.length > 0 ? (
+                  <div className="space-y-4">
+                    {Object.entries(groupedOptions).map(([category, categoryOptions]) => (
+                      <div key={category} className="space-y-2">
+                        {categoryFilter === '全部' ? (
+                          <div className="text-xs font-semibold text-[var(--glass-text-tertiary)]">{category}</div>
+                        ) : null}
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {categoryOptions.map((option) => renderStyleButton(option))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex h-24 items-center justify-center rounded-xl border border-dashed border-[var(--glass-stroke-soft)] text-sm text-[var(--glass-text-tertiary)]">
+                    没有匹配的风格
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-semibold text-[var(--glass-text-tertiary)]">热门推荐</div>
+                <button
+                  type="button"
+                  onClick={() => setShowAll(true)}
+                  className="text-xs font-medium text-[var(--glass-tone-info-fg)] hover:underline"
+                >
+                  更多风格
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {featuredOptions.map((option) => renderStyleButton(option))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--glass-stroke-strong)] text-sm font-medium text-[var(--glass-text-secondary)] transition-all hover:border-[var(--glass-accent-from)] hover:text-[var(--glass-accent-from)]"
+              >
+                <AppIcon name="search" className="h-4 w-4" />
+                查看全部风格
+              </button>
+            </div>
+          )}
         </div>,
         document.body,
       )}
