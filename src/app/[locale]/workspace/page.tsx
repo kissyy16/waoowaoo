@@ -96,6 +96,7 @@ export default function WorkspacePage() {
 
   const t = useTranslations('workspace')
   const tc = useTranslations('common')
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin'
 
   // 检查用户是否已登录
   useEffect(() => {
@@ -205,8 +206,12 @@ export default function WorkspacePage() {
         setFormData({ name: '', description: '' })
 
         if (shouldOpenModelSetup) {
-          alert(t('analysisModelRequiredAfterCreate'))
-          router.push({ pathname: '/profile' })
+          if (isAdmin) {
+            alert(t('analysisModelRequiredAfterCreate'))
+            router.push({ pathname: '/profile' })
+          } else {
+            alert(t('analysisModelRequiredForUser'))
+          }
         }
       } else {
         setCreateError(await readApiErrorMessage(response, t('createFailed')))
@@ -589,15 +594,21 @@ export default function WorkspacePage() {
               <div className="flex items-start gap-2 mb-4 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400">
                 <AppIcon name="alert" className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="text-[12px] leading-relaxed">
-                  {t('modelNotConfigured.before')}
-                  <Link
-                    href={{ pathname: '/profile' }}
-                    className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300 mx-0.5"
-                    onClick={() => setShowCreateModal(false)}
-                  >
-                    {t('modelNotConfigured.link')}
-                  </Link>
-                  {t('modelNotConfigured.after')}
+                  {isAdmin ? (
+                    <>
+                      {t('modelNotConfigured.before')}
+                      <Link
+                        href={{ pathname: '/profile' }}
+                        className="font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-300 mx-0.5"
+                        onClick={() => setShowCreateModal(false)}
+                      >
+                        {t('modelNotConfigured.link')}
+                      </Link>
+                      {t('modelNotConfigured.after')}
+                    </>
+                  ) : (
+                    t('modelNotConfigured.contactAdmin')
+                  )}
                 </span>
               </div>
             )}

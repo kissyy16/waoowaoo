@@ -86,22 +86,39 @@ describe('Navbar download logs entry', () => {
     useSessionMock.mockReset()
   })
 
-  it('renders the download logs entry on the far-right action group for signed-in users', () => {
+  it('renders the admin links for admin users', () => {
     Reflect.set(globalThis, 'React', React)
     useSessionMock.mockReturnValue({
-      data: { user: { name: 'Earth' } },
+      data: { user: { name: 'Earth', role: 'admin' } },
       status: 'authenticated',
     })
 
     const html = renderWithIntl(createElement(Navbar))
 
+    expect(html).toContain('设置中心')
     expect(html).toContain('下载日志')
+    expect(html).toContain('href="/profile"')
     expect(html).toContain('href="/home"')
     expect(html).toContain('href="/api/admin/download-logs"')
     expect(html).toContain('download=""')
   })
 
-  it('does not render the download logs entry for signed-out users', () => {
+  it('does not render admin links for regular signed-in users', () => {
+    Reflect.set(globalThis, 'React', React)
+    useSessionMock.mockReturnValue({
+      data: { user: { name: 'Earth', role: 'user' } },
+      status: 'authenticated',
+    })
+
+    const html = renderWithIntl(createElement(Navbar))
+
+    expect(html).not.toContain('设置中心')
+    expect(html).not.toContain('下载日志')
+    expect(html).not.toContain('/profile')
+    expect(html).not.toContain('/api/admin/download-logs')
+  })
+
+  it('does not render admin links for signed-out users', () => {
     Reflect.set(globalThis, 'React', React)
     useSessionMock.mockReturnValue({
       data: null,
@@ -110,7 +127,9 @@ describe('Navbar download logs entry', () => {
 
     const html = renderWithIntl(createElement(Navbar))
 
+    expect(html).not.toContain('设置中心')
     expect(html).not.toContain('下载日志')
+    expect(html).not.toContain('/profile')
     expect(html).not.toContain('/api/admin/download-logs')
   })
 })

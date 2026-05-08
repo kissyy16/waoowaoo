@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildMockRequest } from '../../../helpers/request'
 import {
   installAuthMocks,
@@ -25,7 +25,12 @@ describe('api specific - user api-config probe model llm protocol', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
+    vi.stubEnv('SYSTEM_CONFIG_OWNER_USER_ID', 'user-1')
     resetAuthMockState()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('probes protocol for openai-compatible provider/model', async () => {

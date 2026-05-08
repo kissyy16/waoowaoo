@@ -4,6 +4,7 @@
     "modelHint": "资产中心使用默认模型，如需修改请在",
     "modelHintLink": "API配置页面",
     "modelHintSuffix": "进行设置",
+    "modelHintContactAdmin": "资产中心使用默认模型，如需修改请联系管理员配置。",
     "folders": "文件夹",
     "noFolders": "暂无文件夹",
     "allAssets": "所有资产",

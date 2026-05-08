@@ -3,7 +3,10 @@ import { buildMockRequest } from '../../../helpers/request'
 
 const authMock = vi.hoisted(() => ({
   requireUserAuth: vi.fn(async () => ({
-    session: { user: { id: 'user-1' } },
+    session: { user: { id: 'user-1', role: 'admin' } },
+  })),
+  requireAdminAuth: vi.fn(async () => ({
+    session: { user: { id: 'user-1', role: 'admin' } },
   })),
   isErrorResponse: vi.fn((value: unknown) => value instanceof Response),
 }))

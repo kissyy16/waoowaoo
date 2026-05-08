@@ -8,8 +8,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { encryptApiKey, decryptApiKey } from '@/lib/crypto-utils'
-import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
+import { requireAdminAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 import {
   composeModelKey,
   parseModelKeyStrict,
@@ -1650,10 +1651,9 @@ function validateCapabilitySelectionsAgainstModels(
 }
 
 export const GET = apiHandler(async () => {
-  const authResult = await requireUserAuth()
+  const authResult = await requireAdminAuth()
   if (isErrorResponse(authResult)) return authResult
-  const { session } = authResult
-  const userId = session.user.id
+  const userId = await getSystemConfigOwnerUserId(authResult.session.user.id)
 
   const pref = await prisma.userPreference.findUnique({
     where: { userId },
@@ -1762,10 +1762,9 @@ export const GET = apiHandler(async () => {
 })
 
 export const PUT = apiHandler(async (request: NextRequest) => {
-  const authResult = await requireUserAuth()
+  const authResult = await requireAdminAuth()
   if (isErrorResponse(authResult)) return authResult
-  const { session } = authResult
-  const userId = session.user.id
+  const userId = await getSystemConfigOwnerUserId(authResult.session.user.id)
 
   let body: ApiConfigPutBody
   try {

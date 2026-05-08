@@ -20,6 +20,7 @@ export default function Navbar() {
   const [checkMsg, setCheckMsg] = useState<string | null>(null)
   const [checkMsgFading, setCheckMsgFading] = useState(false)
   const [manualChecking, setManualChecking] = useState(false)
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin'
   const downloadLogsHref = '/api/admin/download-logs'
 
   const handleCheckUpdate = async () => {
@@ -117,24 +118,28 @@ export default function Navbar() {
                     <AppIcon name="folderHeart" className="w-4 h-4" />
                     {t('assetHub')}
                   </Link>
-                  <Link
-                    href={{ pathname: '/profile' }}
-                    className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
-                    title={t('profile')}
-                  >
-                    <AppIcon name="userRoundCog" className="w-5 h-5" />
-                    {t('profile')}
-                  </Link>
+                  {isAdmin && (
+                    <Link
+                      href={{ pathname: '/profile' }}
+                      className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
+                      title={t('profile')}
+                    >
+                      <AppIcon name="userRoundCog" className="w-5 h-5" />
+                      {t('profile')}
+                    </Link>
+                  )}
                   <LanguageSwitcher />
-                  <a
-                    href={downloadLogsHref}
-                    download
-                    className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
-                    title={t('downloadLogs')}
-                  >
-                    <AppIcon name="download" className="w-4 h-4" />
-                    {t('downloadLogs')}
-                  </a>
+                  {isAdmin && (
+                    <a
+                      href={downloadLogsHref}
+                      download
+                      className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors flex items-center gap-1"
+                      title={t('downloadLogs')}
+                    >
+                      <AppIcon name="download" className="w-4 h-4" />
+                      {t('downloadLogs')}
+                    </a>
+                  )}
                 </>
 
               ) : (
@@ -144,12 +149,6 @@ export default function Navbar() {
                     className="text-sm text-[var(--glass-text-secondary)] hover:text-[var(--glass-text-primary)] font-medium transition-colors"
                   >
                     {t('signin')}
-                  </Link>
-                  <Link
-                    href={{ pathname: '/auth/signup' }}
-                    className="glass-btn-base glass-btn-primary px-4 py-2 text-sm font-medium"
-                  >
-                    {t('signup')}
                   </Link>
                   <LanguageSwitcher />
                 </>

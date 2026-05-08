@@ -7,6 +7,7 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 import {
   type CapabilitySelections,
   type CapabilityValue,
@@ -125,8 +126,9 @@ export interface UserModelConfig {
 export async function getUserWorkflowConcurrencyConfig(
   userId: string,
 ): Promise<WorkflowConcurrencyConfig> {
+  const configOwnerUserId = await getSystemConfigOwnerUserId(userId)
   const userPref = await prisma.userPreference.findUnique({
-    where: { userId },
+    where: { userId: configOwnerUserId },
     select: {
       analysisConcurrency: true,
       imageConcurrency: true,
@@ -148,9 +150,10 @@ export async function getProjectModelConfig(
   projectId: string,
   userId: string,
 ): Promise<ProjectModelConfig> {
+  const configOwnerUserId = await getSystemConfigOwnerUserId(userId)
   const [projectData, userPref] = await Promise.all([
     prisma.novelPromotionProject.findUnique({ where: { projectId } }),
-    prisma.userPreference.findUnique({ where: { userId } }),
+    prisma.userPreference.findUnique({ where: { userId: configOwnerUserId } }),
   ])
 
   return {
@@ -172,8 +175,9 @@ export async function getProjectModelConfig(
  * 获取用户级模型配置（无项目时使用）
  */
 export async function getUserModelConfig(userId: string): Promise<UserModelConfig> {
+  const configOwnerUserId = await getSystemConfigOwnerUserId(userId)
   const userPref = await prisma.userPreference.findUnique({
-    where: { userId },
+    where: { userId: configOwnerUserId },
   })
 
   return {

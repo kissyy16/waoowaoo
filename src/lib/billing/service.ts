@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logError as _ulogError } from '@/lib/logging/core'
 import { getLogContext } from '@/lib/logging/context'
 import { prisma } from '@/lib/prisma'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 import { parseModelKeyStrict } from '@/lib/model-config-contract'
 import {
   calcImage,
@@ -540,8 +541,9 @@ async function loadUserCustomPricing(
   const parsed = parseModelKeyStrict(model)
   if (!parsed) return null
 
+  const configOwnerUserId = await getSystemConfigOwnerUserId(userId)
   const pref = await prisma.userPreference.findUnique({
-    where: { userId },
+    where: { userId: configOwnerUserId },
     select: { customModels: true },
   })
   if (!pref?.customModels) return null

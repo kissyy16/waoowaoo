@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { composeModelKey } from '@/lib/model-config-contract'
 import { getProviderKey } from '@/lib/api-config'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 
 type StoredModelType = 'llm' | 'image' | 'video' | 'audio' | 'lipsync'
@@ -87,6 +88,7 @@ function hasProvider(rawProviders: string | null | undefined, providerId: string
 export async function saveModelTemplateConfiguration(input: SaveModelTemplateInput): Promise<{
   modelKey: string
 }> {
+  const configOwnerUserId = await getSystemConfigOwnerUserId(input.userId)
   if (getProviderKey(input.providerId) !== 'openai-compatible') {
     throw new Error('MODEL_TEMPLATE_SAVE_PROVIDER_INVALID')
   }
@@ -101,7 +103,7 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
   }
 
   const pref = await prisma.userPreference.findUnique({
-    where: { userId: input.userId },
+    where: { userId: configOwnerUserId },
     select: {
       customModels: true,
       customProviders: true,
@@ -151,9 +153,9 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
     : [...models, nextRecord]
 
   await prisma.userPreference.upsert({
-    where: { userId: input.userId },
+    where: { userId: configOwnerUserId },
     create: {
-      userId: input.userId,
+      userId: configOwnerUserId,
       customModels: JSON.stringify(nextModels),
       customProviders: pref?.customProviders || JSON.stringify([]),
     },

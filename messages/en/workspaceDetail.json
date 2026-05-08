@@ -10,6 +10,7 @@
   "modelSetup": {
     "title": "Set up default models before starting",
     "description": "No default analysis model is configured for this account. Smart split and downstream AI flows cannot run until it is set.",
+    "contactAdminDescription": "No default analysis model is configured yet. Smart split and downstream AI flows cannot run until an administrator completes setup.",
     "configureNow": "Configure Analysis Model",
     "goProfile": "Go to Profile Settings",
     "modalTitle": "Configure Default Analysis Model",

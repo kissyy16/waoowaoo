@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { composeModelKey, parseModelKeyStrict } from '@/lib/model-config-contract'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 import { type LocationAvailableSlot, stringifyLocationAvailableSlots } from '@/lib/location-available-slots'
 
 function normalizeModelKey(value: unknown): string | null {
@@ -21,7 +22,7 @@ export async function resolveAnalysisModel(projectId: string, userId: string): P
       select: { id: true, analysisModel: true },
     }),
     prisma.userPreference.findUnique({
-      where: { userId },
+      where: { userId: await getSystemConfigOwnerUserId(userId) },
       select: { analysisModel: true },
     }),
   ])

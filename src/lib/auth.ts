@@ -3,6 +3,9 @@ import CredentialsProvider from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { logAuthAction } from './logging/semantic'
 import { prisma } from './prisma'
+import { isAdminRole, isTruthyEnv, normalizeUserRole } from './user-role'
+
+const allowNonAdminLogin = isTruthyEnv(process.env.AUTH_ALLOW_NON_ADMIN_LOGIN)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const authOptions: any = {
@@ -28,7 +31,13 @@ export const authOptions: any = {
         const user = await prisma.user.findUnique({
           where: {
             name: credentials.username
-          }
+          },
+          select: {
+            id: true,
+            name: true,
+            password: true,
+            role: true,
+          },
         })
 
         if (!user || !user.password) {
@@ -44,11 +53,18 @@ export const authOptions: any = {
           return null
         }
 
-        logAuthAction('LOGIN', user.name, { userId: user.id, success: true })
+        const role = normalizeUserRole(user.role)
+        if (!allowNonAdminLogin && !isAdminRole(role)) {
+          logAuthAction('LOGIN', user.name, { userId: user.id, role, error: 'Admin role required' })
+          return null
+        }
+
+        logAuthAction('LOGIN', user.name, { userId: user.id, role, success: true })
 
         return {
           id: user.id,
           name: user.name,
+          role,
         }
       }
     })
@@ -64,6 +80,7 @@ export const authOptions: any = {
     async jwt({ token, user }: any) {
       if (user) {
         token.id = user.id
+        token.role = normalizeUserRole(user.role)
       }
       return token
     },
@@ -71,6 +88,11 @@ export const authOptions: any = {
     async session({ session, token }: any) {
       if (token && session.user) {
         session.user.id = token.id as string
+        const currentUser = await prisma.user.findUnique({
+          where: { id: token.id as string },
+          select: { role: true },
+        })
+        session.user.role = normalizeUserRole(currentUser?.role || token.role)
       }
       return session
     }

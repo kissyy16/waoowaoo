@@ -26,7 +26,11 @@ vi.mock('@/lib/api-auth', () => {
     isErrorResponse: (value: unknown) => value instanceof Response,
     requireUserAuth: async () => {
       if (!authState.authenticated) return unauthorized()
-      return { session: { user: { id: 'user-1' } } }
+      return { session: { user: { id: 'user-1', role: 'admin' } } }
+    },
+    requireAdminAuth: async () => {
+      if (!authState.authenticated) return unauthorized()
+      return { session: { user: { id: 'user-1', role: 'admin' } } }
     },
   }
 })

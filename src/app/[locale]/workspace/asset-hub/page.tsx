@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api-fetch'
 import JSZip from 'jszip'
 
 import { useState } from 'react'
+import { useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '@/components/Navbar'
@@ -31,8 +32,10 @@ import { useImageGenerationCount } from '@/lib/image-generation/use-image-genera
 export default function AssetHubPage() {
     const t = useTranslations('assetHub')
     const queryClient = useQueryClient()
+    const { data: session } = useSession()
     const { count: characterGenerationCount } = useImageGenerationCount('character')
     const { count: locationGenerationCount } = useImageGenerationCount('location')
+    const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin'
 
     // 文件夹选择状态
     const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
@@ -460,9 +463,15 @@ export default function AssetHubPage() {
                     <p className="text-sm text-[var(--glass-text-secondary)] mt-1">{t('description')}</p>
                     <p className="text-xs text-[var(--glass-text-tertiary)] mt-2 flex items-center gap-1">
                         <AppIcon name="info" className="w-3.5 h-3.5" />
-                        {t('modelHint')}
-                        <Link href={{ pathname: '/profile' }} className="text-[var(--glass-tone-info-fg)] hover:underline">{t('modelHintLink')}</Link>
-                        {t('modelHintSuffix')}
+                        {isAdmin ? (
+                            <>
+                                {t('modelHint')}
+                                <Link href={{ pathname: '/profile' }} className="text-[var(--glass-tone-info-fg)] hover:underline">{t('modelHintLink')}</Link>
+                                {t('modelHintSuffix')}
+                            </>
+                        ) : (
+                            t('modelHintContactAdmin')
+                        )}
                     </p>
                 </div>
 

@@ -22,6 +22,7 @@
   "saving": "Saving...",
   "createFailed": "Failed to create project",
   "analysisModelRequiredAfterCreate": "Project created. Please configure default models in Profile first (at minimum an analysis model), or the project cannot be used.",
+  "analysisModelRequiredForUser": "Project created. Default models are not configured yet. Please contact an administrator before using it.",
   "updateFailed": "Failed to update project",
   "validation": {
     "nameRequired": "Project name is required.",
@@ -37,6 +38,7 @@
   "modelNotConfigured": {
     "before": "No models configured yet. Please go to",
     "link": "Settings Center",
-    "after": "to configure models, or customize them in project settings after creation."
+    "after": "to configure models, or customize them in project settings after creation.",
+    "contactAdmin": "No models are configured yet. Please contact an administrator to complete setup."
   }
 }

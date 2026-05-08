@@ -4,8 +4,16 @@ import { logAuthAction } from '@/lib/logging/semantic'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { prisma } from '@/lib/prisma'
 import { checkRateLimit, getClientIp, AUTH_REGISTER_LIMIT } from '@/lib/rate-limit'
+import { isTruthyEnv } from '@/lib/user-role'
 
 export const POST = apiHandler(async (request: NextRequest) => {
+  if (!isTruthyEnv(process.env.AUTH_REGISTRATION_ENABLED)) {
+    throw new ApiError('FORBIDDEN', {
+      code: 'REGISTRATION_DISABLED',
+      message: '注册功能已关闭，请联系管理员创建账号',
+    })
+  }
+
   // 🛡️ IP 限流
   const ip = getClientIp(request)
   const rateResult = await checkRateLimit('auth:register', ip, AUTH_REGISTER_LIMIT)

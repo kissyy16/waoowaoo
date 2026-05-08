@@ -12,6 +12,7 @@ export default function ProfilePage() {
   const router = useRouter()
   const t = useTranslations('profile')
   const tc = useTranslations('common')
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin'
 
   // 主要分区：扣费记录 / API配置
   const [activeSection, setActiveSection] = useState<'billing' | 'apiConfig'>('apiConfig')
@@ -25,6 +26,27 @@ export default function ProfilePage() {
     return (
       <div className="glass-page flex min-h-screen items-center justify-center">
         <div className="text-[var(--glass-text-secondary)]">{tc('loading')}</div>
+      </div>
+    )
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="glass-page min-h-screen">
+        <Navbar />
+        <main className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4 py-12">
+          <div className="glass-surface-modal max-w-md p-8 text-center">
+            <AppIcon name="alert" className="mx-auto mb-4 h-12 w-12 text-[var(--glass-tone-warning-fg)]" />
+            <h1 className="mb-2 text-2xl font-bold text-[var(--glass-text-primary)]">{t('adminOnlyTitle')}</h1>
+            <p className="mb-6 text-sm leading-6 text-[var(--glass-text-secondary)]">{t('adminOnlyDescription')}</p>
+            <button
+              onClick={() => router.push({ pathname: '/workspace' })}
+              className="glass-btn-base glass-btn-primary px-5 py-2.5 text-sm font-medium"
+            >
+              {t('backToWorkspace')}
+            </button>
+          </div>
+        </main>
       </div>
     )
   }

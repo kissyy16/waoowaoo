@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { apiHandler, ApiError } from '@/lib/api-errors'
-import { isErrorResponse, requireUserAuth } from '@/lib/api-auth'
+import { isErrorResponse, requireAdminAuth, requireUserAuth } from '@/lib/api-auth'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 import {
   AssistantPlatformError,
   createAssistantChatResponse,
@@ -53,9 +54,6 @@ function mapAssistantError(error: AssistantPlatformError): ApiError {
 }
 
 export const POST = apiHandler(async (request: NextRequest) => {
-  const authResult = await requireUserAuth()
-  if (isErrorResponse(authResult)) return authResult
-
   let body: RequestBody
   try {
     body = (await request.json()) as RequestBody
@@ -68,10 +66,17 @@ export const POST = apiHandler(async (request: NextRequest) => {
   }
 
   const assistantId = readAssistantId(body.assistantId)
+  const authResult = assistantId === 'api-config-template'
+    ? await requireAdminAuth()
+    : await requireUserAuth()
+  if (isErrorResponse(authResult)) return authResult
+  const userId = assistantId === 'api-config-template'
+    ? await getSystemConfigOwnerUserId(authResult.session.user.id)
+    : authResult.session.user.id
 
   try {
     return await createAssistantChatResponse({
-      userId: authResult.session.user.id,
+      userId,
       assistantId,
       context: body.context,
       messages: body.messages,

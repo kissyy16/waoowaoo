@@ -86,6 +86,9 @@ docker compose up mysql redis minio -d
 # Run database migration
 npx prisma db push
 
+# Create or promote an admin account (registration is disabled by default)
+npm run admin:create -- --username <admin-username> --password <admin-password>
+
 # Start development server
 npm run dev
 ```
@@ -107,7 +110,7 @@ Visit [http://localhost:13000](http://localhost:13000) (Method 1 & 2) or [http:/
 
 ## 🔧 API Configuration
 
-After launching, go to **Settings** to configure your AI service API keys. A built-in guide is provided.
+After launching, sign in with an admin account, then go to **Settings** to configure AI service API keys. Registration is disabled by default; regular users cannot access Settings, and all users share the admin-maintained runtime configuration.
 
 > 💡 **Note**: Currently only official provider APIs are recommended. Third-party compatible formats (OpenAI Compatible) are not yet fully supported and will be improved in future releases.
 

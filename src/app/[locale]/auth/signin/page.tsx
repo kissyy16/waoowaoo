@@ -55,6 +55,10 @@ export default function SignIn() {
               <p className="text-[var(--glass-text-secondary)]">{t('loginTo')}</p>
             </div>
 
+            <div className="mb-6 rounded-lg border border-[color:color-mix(in_srgb,var(--glass-tone-warning-fg)_22%,transparent)] bg-[var(--glass-tone-warning-bg)] px-4 py-3 text-sm text-[var(--glass-tone-warning-fg)]">
+              {t('adminOnlyLoginHint')}
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
                 <label htmlFor="username" className="glass-field-label block mb-2">
@@ -104,15 +108,6 @@ export default function SignIn() {
                 {loading ? t('loginButtonLoading') : t('loginButton')}
               </button>
             </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-[var(--glass-text-secondary)]">
-                {t('noAccount')}{" "}
-                <Link href={{ pathname: '/auth/signup' }} className="text-[var(--glass-tone-info-fg)] hover:underline font-medium">
-                  {t('signupNow')}
-                </Link>
-              </p>
-            </div>
 
             <div className="mt-6 text-center">
               <Link href={{ pathname: '/' }} className="text-[var(--glass-text-tertiary)] hover:text-[var(--glass-text-secondary)] text-sm">

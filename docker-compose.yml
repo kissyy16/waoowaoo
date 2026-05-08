@@ -87,6 +87,9 @@ services:
       # 容器内自调用地址（服务端 fetch 自己的 API / 文件）
       INTERNAL_APP_URL: "http://127.0.0.1:3000"
       NEXTAUTH_SECRET: "waoowaoo-default-secret-2026"
+      AUTH_REGISTRATION_ENABLED: "false"
+      AUTH_ALLOW_NON_ADMIN_LOGIN: "false"
+      SYSTEM_CONFIG_OWNER_USER_ID: ""
       # 内部密钥
       CRON_SECRET: "waoowaoo-docker-cron-secret"
       INTERNAL_TASK_TOKEN: "waoowaoo-docker-task-token"
@@ -118,7 +121,6 @@ services:
       LLM_STREAM_EPHEMERAL_ENABLED: "true"
     ports:
       - "13000:3000"
-      - "13010:3010"
     volumes:
       - ./data:/app/data
       - ./docker-logs:/app/logs

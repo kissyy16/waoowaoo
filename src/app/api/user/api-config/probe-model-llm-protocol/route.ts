@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiHandler, ApiError } from '@/lib/api-errors'
-import { isErrorResponse, requireUserAuth } from '@/lib/api-auth'
+import { isErrorResponse, requireAdminAuth } from '@/lib/api-auth'
 import { getProviderKey } from '@/lib/api-config'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 import { probeModelLlmProtocol } from '@/lib/user-api/model-llm-protocol-probe'
 
 type ProbeRequestBody = {
@@ -20,7 +21,7 @@ function readRequiredString(value: unknown, field: string): string {
 }
 
 export const POST = apiHandler(async (request: NextRequest) => {
-  const authResult = await requireUserAuth()
+  const authResult = await requireAdminAuth()
   if (isErrorResponse(authResult)) return authResult
 
   let body: ProbeRequestBody
@@ -44,7 +45,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
   }
 
   const result = await probeModelLlmProtocol({
-    userId: authResult.session.user.id,
+    userId: await getSystemConfigOwnerUserId(authResult.session.user.id),
     providerId,
     modelId,
   })

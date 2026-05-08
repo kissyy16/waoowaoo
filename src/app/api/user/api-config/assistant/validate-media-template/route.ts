@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { apiHandler, ApiError } from '@/lib/api-errors'
-import { isErrorResponse, requireUserAuth } from '@/lib/api-auth'
+import { isErrorResponse, requireAdminAuth } from '@/lib/api-auth'
 import { getProviderKey } from '@/lib/api-config'
 import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template'
 
@@ -20,7 +20,7 @@ function readRequiredString(value: unknown, field: string): string {
 }
 
 export const POST = apiHandler(async (request: NextRequest) => {
-  const authResult = await requireUserAuth()
+  const authResult = await requireAdminAuth()
   if (isErrorResponse(authResult)) return authResult
 
   let body: RequestBody

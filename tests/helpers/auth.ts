@@ -5,6 +5,7 @@ type SessionUser = {
   id: string
   name?: string | null
   email?: string | null
+  role?: 'admin' | 'user'
 }
 
 type SessionPayload = {
@@ -21,6 +22,7 @@ const defaultSession: SessionPayload = {
     id: 'test-user-id',
     name: 'test-user',
     email: 'test@example.com',
+    role: 'admin',
   },
 }
 
@@ -75,6 +77,11 @@ export function installAuthMocks() {
       if (!state.session) return unauthorizedResponse()
       return { session: state.session }
     },
+    requireAdminAuth: async () => {
+      if (!state.session) return unauthorizedResponse()
+      if (state.session.user.role !== 'admin') return forbiddenResponse()
+      return { session: state.session }
+    },
     requireProjectAuth: async (projectId: string) => {
       if (!state.session) return unauthorizedResponse()
       if (state.projectAuthMode === 'forbidden') return forbiddenResponse()
@@ -104,6 +111,19 @@ export function mockAuthenticated(userId: string) {
       user: {
         ...defaultSession.user,
         id: userId,
+      },
+    },
+  }
+}
+
+export function mockAuthenticatedUser(userId: string) {
+  state = {
+    ...state,
+    session: {
+      user: {
+        ...defaultSession.user,
+        id: userId,
+        role: 'user',
       },
     },
   }

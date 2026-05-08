@@ -4,6 +4,7 @@
     "modelHint": "Asset Hub uses default models. To change settings, go to",
     "modelHintLink": "API Settings",
     "modelHintSuffix": "",
+    "modelHintContactAdmin": "Asset Hub uses default models. Contact an administrator to change settings.",
     "folders": "Folders",
     "noFolders": "No folders yet",
     "allAssets": "All Assets",

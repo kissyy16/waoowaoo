@@ -5,9 +5,14 @@ const prismaMock = vi.hoisted(() => ({
     findUnique: vi.fn(),
   },
 }))
+const getSystemConfigOwnerUserIdMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/lib/prisma', () => ({
   prisma: prismaMock,
+}))
+
+vi.mock('@/lib/system-config-owner', () => ({
+  getSystemConfigOwnerUserId: getSystemConfigOwnerUserIdMock,
 }))
 
 import { resolveAnalysisModel } from '@/lib/workers/handlers/resolve-analysis-model'
@@ -15,6 +20,7 @@ import { resolveAnalysisModel } from '@/lib/workers/handlers/resolve-analysis-mo
 describe('resolveAnalysisModel', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    getSystemConfigOwnerUserIdMock.mockResolvedValue('config-owner-id')
     prismaMock.userPreference.findUnique.mockResolvedValue({
       analysisModel: 'openai-compatible:pref::gpt-4.1-mini',
     })
@@ -48,8 +54,9 @@ describe('resolveAnalysisModel', () => {
     })
 
     expect(result).toBe('openai-compatible:pref::gpt-4.1-mini')
+    expect(getSystemConfigOwnerUserIdMock).toHaveBeenCalledWith('user-1')
     expect(prismaMock.userPreference.findUnique).toHaveBeenCalledWith({
-      where: { userId: 'user-1' },
+      where: { userId: 'config-owner-id' },
       select: { analysisModel: true },
     })
   })

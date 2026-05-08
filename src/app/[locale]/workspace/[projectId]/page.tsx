@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api-fetch'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '@/components/Navbar'
@@ -56,6 +57,8 @@ export default function ProjectDetailPage() {
   const projectId = params.projectId
   const t = useTranslations('workspaceDetail')
   const tc = useTranslations('common')
+  const { data: session } = useSession()
+  const isAdmin = (session?.user as { role?: string } | undefined)?.role === 'admin'
 
   // 从URL读取参数
   const urlStage = searchParams.get('stage') as Stage | null
@@ -421,26 +424,35 @@ export default function ProjectDetailPage() {
                       {t('modelSetup.title')}
                     </h2>
                     <p className="text-[var(--glass-text-secondary)] mb-5">
-                      {t('modelSetup.description')}
+                      {isAdmin ? t('modelSetup.description') : t('modelSetup.contactAdminDescription')}
                     </p>
-                    <div className="flex flex-wrap gap-3">
+                    {isAdmin ? (
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          onClick={() => setIsModelSetupModalOpen(true)}
+                          className="glass-btn-base glass-btn-primary px-4 py-2"
+                        >
+                          {t('modelSetup.configureNow')}
+                        </button>
+                        <button
+                          onClick={() => router.push({ pathname: '/profile' })}
+                          className="glass-btn-base glass-btn-secondary px-4 py-2"
+                        >
+                          {t('modelSetup.goProfile')}
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        onClick={() => setIsModelSetupModalOpen(true)}
-                        className="glass-btn-base glass-btn-primary px-4 py-2"
-                      >
-                        {t('modelSetup.configureNow')}
-                      </button>
-                      <button
-                        onClick={() => router.push({ pathname: '/profile' })}
+                        onClick={() => router.push({ pathname: '/workspace' })}
                         className="glass-btn-base glass-btn-secondary px-4 py-2"
                       >
-                        {t('modelSetup.goProfile')}
+                        {t('backToWorkspace')}
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
 
-                {isModelSetupModalOpen && (
+                {isAdmin && isModelSetupModalOpen && (
                   <div className="fixed inset-0 glass-overlay flex items-center justify-center z-50 backdrop-blur-sm">
                     <div className="glass-surface-modal p-6 w-full max-w-xl mx-4">
                       <h3 className="text-xl font-bold text-[var(--glass-text-primary)] mb-2">

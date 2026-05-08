@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { requireUserAuth, isErrorResponse } from '@/lib/api-auth'
+import { requireUserAuth, requireAdminAuth, isErrorResponse } from '@/lib/api-auth'
 import { ApiError, apiHandler } from '@/lib/api-errors'
 import { isArtStyleValue } from '@/lib/constants'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 
 function validateArtStyleField(value: unknown): string {
   if (typeof value !== 'string') {
@@ -28,13 +29,31 @@ export const GET = apiHandler(async () => {
   // 🔐 统一权限验证
   const authResult = await requireUserAuth()
   if (isErrorResponse(authResult)) return authResult
-  const { session } = authResult
+  const userId = await getSystemConfigOwnerUserId(authResult.session.user.id)
 
-  // 获取或创建用户偏好
+  // 获取或创建管理员统一偏好；只返回运行时需要的安全默认值字段
   const preference = await prisma.userPreference.upsert({
-    where: { userId: session.user.id },
+    where: { userId },
     update: {},
-    create: { userId: session.user.id }
+    create: { userId },
+    select: {
+      id: true,
+      userId: true,
+      analysisModel: true,
+      characterModel: true,
+      locationModel: true,
+      storyboardModel: true,
+      editModel: true,
+      videoModel: true,
+      audioModel: true,
+      lipSyncModel: true,
+      voiceDesignModel: true,
+      videoRatio: true,
+      artStyle: true,
+      ttsRate: true,
+      imageResolution: true,
+      videoResolution: true,
+    },
   })
 
   return NextResponse.json({ preference })
@@ -43,9 +62,9 @@ export const GET = apiHandler(async () => {
 // PATCH - 更新用户偏好配置
 export const PATCH = apiHandler(async (request: NextRequest) => {
   // 🔐 统一权限验证
-  const authResult = await requireUserAuth()
+  const authResult = await requireAdminAuth()
   if (isErrorResponse(authResult)) return authResult
-  const { session } = authResult
+  const userId = await getSystemConfigOwnerUserId(authResult.session.user.id)
 
   const body = await request.json()
 
@@ -81,10 +100,10 @@ export const PATCH = apiHandler(async (request: NextRequest) => {
 
   // 更新或创建用户偏好
   const preference = await prisma.userPreference.upsert({
-    where: { userId: session.user.id },
+    where: { userId },
     update: updateData,
     create: {
-      userId: session.user.id,
+      userId,
       ...updateData
     }
   })

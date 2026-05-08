@@ -9,6 +9,7 @@
 
 import { prisma } from './prisma'
 import { decryptApiKey } from './crypto-utils'
+import { getSystemConfigOwnerUserId } from './system-config-owner'
 import {
   composeModelKey,
   parseModelKeyStrict,
@@ -289,8 +290,9 @@ function pickProviderStrict(
 }
 
 async function readUserConfig(userId: string): Promise<{ models: CustomModel[]; providers: CustomProvider[] }> {
+  const configOwnerUserId = await getSystemConfigOwnerUserId(userId)
   const pref = await prisma.userPreference.findUnique({
-    where: { userId },
+    where: { userId: configOwnerUserId },
     select: {
       customModels: true,
       customProviders: true,
@@ -498,8 +500,9 @@ export async function getLipSyncApiKey(userId: string, model?: string | null): P
  * 检查用户是否有任意 API 配置
  */
 export async function hasApiConfig(userId: string): Promise<boolean> {
+  const configOwnerUserId = await getSystemConfigOwnerUserId(userId)
   const pref = await prisma.userPreference.findUnique({
-    where: { userId },
+    where: { userId: configOwnerUserId },
     select: { customProviders: true },
   })
 

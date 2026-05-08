@@ -24,6 +24,7 @@ export const PUBLIC_ROUTE_ALLOWLIST = new Set([
 ])
 
 const AUTH_CALL_PATTERNS = [
+  /\brequireAdminAuth\s*\(/,
   /\brequireUserAuth\s*\(/,
   /\brequireProjectAuth\s*\(/,
   /\brequireProjectAuthLight\s*\(/,
@@ -72,7 +73,7 @@ export function inspectRouteContract(relPath, content) {
   }
 
   if (!PUBLIC_ROUTE_ALLOWLIST.has(relPath) && !hasRequiredAuth(content)) {
-    violations.push(`${relPath} missing requireUserAuth/requireProjectAuth/requireProjectAuthLight`)
+    violations.push(`${relPath} missing requireAdminAuth/requireUserAuth/requireProjectAuth/requireProjectAuthLight`)
   }
 
   return violations

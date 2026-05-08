@@ -12,6 +12,7 @@ import { withPrismaRetry } from '@/lib/prisma-retry'
 import { extractModelKey } from '@/lib/config-service'
 import { getErrorSpec, type UnifiedErrorCode } from '@/lib/errors/codes'
 import { getLogContext, setLogContext } from '@/lib/logging/context'
+import { isAdminRole, isTruthyEnv, normalizeUserRole, type UserRole } from '@/lib/user-role'
 
 // ============================================================
 // 类型定义
@@ -22,7 +23,9 @@ export interface AuthSession {
         id: string
         name?: string | null
         email?: string | null
+        role?: UserRole
     }
+    internalTask?: boolean
 }
 
 function bindAuthLogContext(session: AuthSession, projectId?: string) {
@@ -52,7 +55,39 @@ async function getInternalTaskSession(): Promise<AuthSession | null> {
             id: userId,
             name: 'internal-worker',
             email: null,
-        }
+            role: 'user',
+        },
+        internalTask: true,
+    }
+}
+
+async function resolveAuthenticatedSessionAccess(session: AuthSession): Promise<AuthSession | NextResponse> {
+    if (session.internalTask) return session
+
+    const currentUser = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true,
+        },
+    })
+
+    if (!currentUser) return unauthorized()
+
+    const role = normalizeUserRole(currentUser.role)
+    if (!isTruthyEnv(process.env.AUTH_ALLOW_NON_ADMIN_LOGIN) && !isAdminRole(role)) {
+        return forbidden('Admin privileges required')
+    }
+
+    return {
+        user: {
+            id: currentUser.id,
+            name: currentUser.name,
+            email: currentUser.email,
+            role,
+        },
     }
 }
 
@@ -186,8 +221,12 @@ export async function requireAuth(): Promise<AuthSession> {
     if (!session?.user?.id) {
         throw { response: unauthorized() }
     }
-    bindAuthLogContext(session)
-    return session
+    const accessSession = await resolveAuthenticatedSessionAccess(session)
+    if (isErrorResponse(accessSession)) {
+        throw { response: accessSession }
+    }
+    bindAuthLogContext(accessSession)
+    return accessSession
 }
 
 /**
@@ -216,10 +255,13 @@ export async function requireProjectAuth<T extends ProjectAuthIncludes = Project
     options?: { include?: T }
 ): Promise<ProjectAuthContextWithIncludes<T> | NextResponse> {
     // 1. 验证 Session
-    const session = await getAuthSession()
+    let session = await getAuthSession()
     if (!session?.user?.id) {
         return unauthorized()
     }
+    const accessSession = await resolveAuthenticatedSessionAccess(session)
+    if (isErrorResponse(accessSession)) return accessSession
+    session = accessSession
     bindAuthLogContext(session, projectId)
 
     // 2. 构建动态 include 对象
@@ -308,8 +350,28 @@ export async function requireUserAuth(): Promise<{ session: AuthSession } | Next
     if (!session?.user?.id) {
         return unauthorized()
     }
-    bindAuthLogContext(session)
-    return { session }
+    const accessSession = await resolveAuthenticatedSessionAccess(session)
+    if (isErrorResponse(accessSession)) return accessSession
+    bindAuthLogContext(accessSession)
+    return { session: accessSession }
+}
+
+/**
+ * 要求管理员权限。
+ *
+ * 注意：这里会实时读取数据库角色，不完全信任 JWT 中缓存的 role，
+ * 避免角色被降级后旧会话仍可访问管理员接口。
+ */
+export async function requireAdminAuth(): Promise<{ session: AuthSession } | NextResponse> {
+    const authResult = await requireUserAuth()
+    if (isErrorResponse(authResult)) return authResult
+
+    if (authResult.session.internalTask || !isAdminRole(authResult.session.user.role)) {
+        return forbidden('Admin privileges required')
+    }
+
+    bindAuthLogContext(authResult.session)
+    return { session: authResult.session }
 }
 
 /**
@@ -319,10 +381,13 @@ export async function requireUserAuth(): Promise<{ session: AuthSession } | Next
 export async function requireProjectAuthLight(
     projectId: string
 ): Promise<{ session: AuthSession; project: { id: string; userId: string; name: string; [key: string]: unknown } } | NextResponse> {
-    const session = await getAuthSession()
+    let session = await getAuthSession()
     if (!session?.user?.id) {
         return unauthorized()
     }
+    const accessSession = await resolveAuthenticatedSessionAccess(session)
+    if (isErrorResponse(accessSession)) return accessSession
+    session = accessSession
     bindAuthLogContext(session, projectId)
 
     const project = await withPrismaRetry(() =>

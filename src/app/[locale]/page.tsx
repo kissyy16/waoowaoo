@@ -11,7 +11,7 @@ import { buildAuthenticatedHomeTarget } from '@/lib/home/default-route'
 
 export default function Home() {
   const t = useTranslations('landing')
-  const { data: session, status } = useSession()
+  const { status } = useSession()
   const router = useRouter()
 
   // 已登录用户自动跳转到 home
@@ -65,7 +65,7 @@ export default function Home() {
 
               <div className="flex flex-wrap gap-4 pt-4 animate-fade-in" style={{ animationDelay: '0.6s' }}>
                 <Link
-                  href={{ pathname: '/auth/signup' }}
+                  href={{ pathname: '/auth/signin' }}
                   className="glass-btn-base glass-btn-primary px-8 py-4 rounded-xl font-semibold transition-all duration-300"
                 >
                   {t('getStarted')}

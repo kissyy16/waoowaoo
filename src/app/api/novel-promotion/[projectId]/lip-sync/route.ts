@@ -9,6 +9,7 @@ import { buildDefaultTaskBillingInfo } from '@/lib/billing'
 import { hasPanelLipSyncOutput } from '@/lib/task/has-output'
 import { withTaskUiPayload } from '@/lib/task/ui-payload'
 import { composeModelKey, parseModelKeyStrict } from '@/lib/model-config-contract'
+import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
 
 const DEFAULT_LIPSYNC_MODEL_KEY = composeModelKey('fal', 'fal-ai/kling-video/lipsync/audio-to-video')
 
@@ -40,7 +41,7 @@ export const POST = apiHandler(async (
   }
 
   const pref = await prisma.userPreference.findUnique({
-    where: { userId: session.user.id },
+    where: { userId: await getSystemConfigOwnerUserId(session.user.id) },
     select: { lipSyncModel: true },
   })
   const preferredLipSyncModel = typeof pref?.lipSyncModel === 'string' ? pref.lipSyncModel.trim() : ''

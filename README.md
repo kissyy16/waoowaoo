@@ -95,6 +95,9 @@ docker compose up mysql redis minio -d
 # 初始化数据库表结构（首次必须执行，跳过会导致启动后报错）
 npx prisma db push
 
+# 创建或提升管理员账号（注册默认关闭，仅管理员可登录）
+npm run admin:create -- --username <你的管理员账号> --password <你的管理员密码>
+
 # 启动开发服务器
 npm run dev
 ```
@@ -119,7 +122,7 @@ npm run dev
 
 ## 🔧 API 配置
 
-启动后进入**设置中心**配置 AI 服务的 API Key，内置配置教程。
+启动后使用管理员账号登录，进入**设置中心**配置 AI 服务的 API Key，内置配置教程。注册功能默认关闭，普通用户无法访问设置中心；所有用户运行 AI 任务时都会使用管理员维护的统一配置。
 
 > 💡 **注意**：目前仅推荐使用各服务商官方 API，第三方兼容格式（OpenAI Compatible）尚不完善，后续版本会持续优化。
 
