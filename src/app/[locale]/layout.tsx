@@ -23,9 +23,9 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
         title: t('title'),
         description: t('description'),
         icons: {
-            icon: '/logo.ico?v=2',
-            shortcut: '/logo.ico?v=2',
-            apple: '/logo.png?v=2',
+            icon: '/logo.png?v=rainbow-xl',
+            shortcut: '/logo.png?v=rainbow-xl',
+            apple: '/logo.png?v=rainbow-xl',
         },
     };
 }
