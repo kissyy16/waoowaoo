@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useSession, signOut } from 'next-auth/react'
+import { useSession } from 'next-auth/react'
 import { useTranslations } from 'next-intl'
 import Navbar from '@/components/Navbar'
 import ApiConfigTab from './components/ApiConfigTab'
@@ -70,12 +70,6 @@ export default function ProfilePage() {
                   <h2 className="font-semibold text-[var(--glass-text-primary)]">{session.user?.name || t('user')}</h2>
                   <p className="text-xs text-[var(--glass-text-tertiary)]">{t('personalAccount')}</p>
                 </div>
-
-                {/* 余额卡片 */}
-                <div className="glass-surface-soft rounded-2xl border border-[var(--glass-stroke-base)] p-4">
-                  <div className="text-xs font-medium text-[var(--glass-text-secondary)]">{t('availableBalance')}</div>
-                  <div className="mt-2 text-base font-semibold text-[var(--glass-text-primary)]">{noBillingText}</div>
-                </div>
               </div>
 
               {/* 导航菜单 */}
@@ -102,14 +96,6 @@ export default function ProfilePage() {
                   <span className="font-medium">{t('billingRecords')}</span>
                 </button>
               </nav>
-              {/* 退出登录 */}
-              <button
-                onClick={() => signOut({ callbackUrl: '/' })}
-                className="glass-btn-base glass-btn-tone-danger mt-auto flex items-center gap-2 px-4 py-3 text-sm rounded-xl transition-all cursor-pointer"
-              >
-                <AppIcon name="logout" className="w-4 h-4" />
-                {t('logout')}
-              </button>
             </div>
           </div>
 
