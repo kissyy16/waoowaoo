@@ -27,11 +27,15 @@ vi.mock('@/components/story-input/StoryInputComposer', () => ({
   default: ({
     minRows,
     textareaClassName,
+    videoRatio,
+    ratioOptions,
     primaryAction,
     secondaryActions,
   }: {
     minRows: number
     textareaClassName?: string
+    videoRatio: string
+    ratioOptions?: Array<{ value: string; recommended?: boolean }>
     primaryAction: React.ReactNode
     secondaryActions?: React.ReactNode
   }) => createElement(
@@ -39,6 +43,8 @@ vi.mock('@/components/story-input/StoryInputComposer', () => ({
     {
       'data-min-rows': String(minRows),
       'data-textarea-class': textareaClassName,
+      'data-video-ratio': videoRatio,
+      'data-recommended-ratio': ratioOptions?.find((option) => option.recommended)?.value ?? '',
     },
     secondaryActions,
     primaryAction,
@@ -109,5 +115,7 @@ describe('HomePage quick-start input', () => {
     expect(html).toContain('StoryInputComposer')
     expect(html).toContain('data-min-rows="3"')
     expect(html).toContain('data-textarea-class="px-0 pt-0 pb-3 align-top"')
+    expect(html).toContain('data-video-ratio="16:9"')
+    expect(html).toContain('data-recommended-ratio="16:9"')
   })
 })

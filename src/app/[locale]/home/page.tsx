@@ -39,6 +39,7 @@ interface Project {
 }
 
 const RECENT_COUNT = 5
+const DEFAULT_HOME_VIDEO_RATIO = '16:9'
 
 export default function HomePage() {
   const { data: session, status } = useSession()
@@ -49,7 +50,7 @@ export default function HomePage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [inputValue, setInputValue] = useState('')
-  const [videoRatio, setVideoRatio] = useState('9:16')
+  const [videoRatio, setVideoRatio] = useState(DEFAULT_HOME_VIDEO_RATIO)
   const [artStyle, setArtStyle] = useState('american-comic')
   const [stylePresetValue, setStylePresetValue] = useState<string>(DEFAULT_STYLE_PRESET_VALUE)
   const [createLoading, setCreateLoading] = useState(false)
@@ -140,7 +141,7 @@ export default function HomePage() {
 
   // 比例选项（带推荐标签）
   const ratioOptions = useMemo(
-    () => VIDEO_RATIOS.map((r) => ({ ...r, recommended: r.value === '9:16' })),
+    () => VIDEO_RATIOS.map((r) => ({ ...r, recommended: r.value === DEFAULT_HOME_VIDEO_RATIO })),
     []
   )
 
