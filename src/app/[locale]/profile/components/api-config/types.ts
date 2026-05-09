@@ -53,6 +53,9 @@ export interface CustomModel {
     compatMediaTemplate?: OpenAICompatMediaTemplate
     compatMediaTemplateCheckedAt?: string
     compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+    compatMediaEditTemplate?: OpenAICompatMediaTemplate
+    compatMediaEditTemplateCheckedAt?: string
+    compatMediaEditTemplateSource?: OpenAICompatMediaTemplateSource
     price: number
     priceMin?: number
     priceMax?: number

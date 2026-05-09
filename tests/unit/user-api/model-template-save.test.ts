@@ -85,4 +85,56 @@ describe('user-api model template save', () => {
     expect(target?.compatMediaTemplateSource).toBe('ai')
     expect(typeof target?.compatMediaTemplateCheckedAt).toBe('string')
   })
+
+  it('backfills the default image edit template when saving an image template', async () => {
+    prismaMock.userPreference.findUnique.mockResolvedValueOnce({
+      customProviders: JSON.stringify([
+        { id: 'openai-compatible:oa-1', name: 'OpenAI Compat' },
+      ]),
+      customModels: JSON.stringify([]),
+    })
+
+    await saveModelTemplateConfiguration({
+      userId: 'user-1',
+      providerId: 'openai-compatible:oa-1',
+      modelId: 'gpt-image-2',
+      name: 'GPT Image 2',
+      type: 'image',
+      template: {
+        version: 1,
+        mediaType: 'image',
+        mode: 'sync',
+        create: {
+          method: 'POST',
+          path: '/images/generations',
+          contentType: 'application/json',
+          bodyTemplate: {
+            model: '{{model}}',
+            prompt: '{{prompt}}',
+          },
+        },
+        response: {
+          outputUrlPath: '$.data[0].url',
+        },
+      },
+      source: 'ai',
+    })
+
+    const savedModels = readSavedModelsFromUpsert()
+    const target = savedModels.find((item) => item.modelKey === 'openai-compatible:oa-1::gpt-image-2')
+    expect(target?.compatMediaEditTemplate).toMatchObject({
+      mediaType: 'image',
+      mode: 'sync',
+      create: {
+        path: '/images/edits',
+        contentType: 'multipart/form-data',
+        multipartFileFields: ['image'],
+        bodyTemplate: {
+          image: '{{images}}',
+        },
+      },
+    })
+    expect(target?.compatMediaEditTemplateSource).toBe('manual')
+    expect(typeof target?.compatMediaEditTemplateCheckedAt).toBe('string')
+  })
 })

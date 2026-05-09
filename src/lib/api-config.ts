@@ -32,6 +32,9 @@ export interface CustomModel {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  compatMediaEditTemplate?: OpenAICompatMediaTemplate
+  compatMediaEditTemplateCheckedAt?: string
+  compatMediaEditTemplateSource?: OpenAICompatMediaTemplateSource
   // Non-authoritative display field; billing uses unified server pricing catalog.
   price: number
 }
@@ -45,6 +48,7 @@ export interface ModelSelection {
   mediaType: ModelMediaType
   llmProtocol?: 'responses' | 'chat-completions'
   compatMediaTemplate?: OpenAICompatMediaTemplate
+  compatMediaEditTemplate?: OpenAICompatMediaTemplate
 }
 
 type GatewayRouteType = 'official' | 'openai-compat'
@@ -242,6 +246,21 @@ function normalizeStoredModel(raw: unknown, index: number): CustomModel {
     ? compatMediaTemplateSourceRaw
     : undefined
 
+  const compatMediaEditTemplateRaw = raw.compatMediaEditTemplate
+  let compatMediaEditTemplate: OpenAICompatMediaTemplate | undefined
+  if (compatMediaEditTemplateRaw !== undefined && compatMediaEditTemplateRaw !== null) {
+    const validated = validateOpenAICompatMediaTemplate(compatMediaEditTemplateRaw)
+    if (!validated.ok || !validated.template) {
+      throw new Error(`MODEL_COMPAT_MEDIA_EDIT_TEMPLATE_INVALID: models[${index}].compatMediaEditTemplate`)
+    }
+    compatMediaEditTemplate = validated.template
+  }
+  const compatMediaEditTemplateCheckedAt = readTrimmedString(raw.compatMediaEditTemplateCheckedAt) || undefined
+  const compatMediaEditTemplateSourceRaw = readTrimmedString(raw.compatMediaEditTemplateSource)
+  const compatMediaEditTemplateSource = compatMediaEditTemplateSourceRaw === 'ai' || compatMediaEditTemplateSourceRaw === 'manual'
+    ? compatMediaEditTemplateSourceRaw
+    : undefined
+
   return {
     modelId,
     modelKey,
@@ -253,6 +272,9 @@ function normalizeStoredModel(raw: unknown, index: number): CustomModel {
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
     ...(compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt } : {}),
     ...(compatMediaTemplateSource ? { compatMediaTemplateSource } : {}),
+    ...(compatMediaEditTemplate ? { compatMediaEditTemplate } : {}),
+    ...(compatMediaEditTemplateCheckedAt ? { compatMediaEditTemplateCheckedAt } : {}),
+    ...(compatMediaEditTemplateSource ? { compatMediaEditTemplateSource } : {}),
     price: 0,
   }
 }
@@ -342,6 +364,9 @@ export async function resolveModelSelection(
   const compatMediaTemplate = (mediaType === 'image' || mediaType === 'video') && providerKey === 'openai-compatible'
     ? exact.compatMediaTemplate
     : undefined
+  const compatMediaEditTemplate = mediaType === 'image' && providerKey === 'openai-compatible'
+    ? exact.compatMediaEditTemplate
+    : undefined
 
   return {
     provider: exact.provider,
@@ -350,6 +375,7 @@ export async function resolveModelSelection(
     mediaType,
     ...(llmProtocol ? { llmProtocol } : {}),
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
+    ...(compatMediaEditTemplate ? { compatMediaEditTemplate } : {}),
   }
 }
 
@@ -373,6 +399,9 @@ async function resolveSingleModelSelection(
   const compatMediaTemplate = (mediaType === 'image' || mediaType === 'video') && providerKey === 'openai-compatible'
     ? model.compatMediaTemplate
     : undefined
+  const compatMediaEditTemplate = mediaType === 'image' && providerKey === 'openai-compatible'
+    ? model.compatMediaEditTemplate
+    : undefined
 
   return {
     provider: model.provider,
@@ -381,6 +410,7 @@ async function resolveSingleModelSelection(
     mediaType,
     ...(llmProtocol ? { llmProtocol } : {}),
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
+    ...(compatMediaEditTemplate ? { compatMediaEditTemplate } : {}),
   }
 }
 

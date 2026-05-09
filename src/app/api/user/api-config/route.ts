@@ -37,9 +37,10 @@ import {
   normalizeWorkflowConcurrencyConfig,
   normalizeWorkflowConcurrencyValue,
 } from '@/lib/workflow-concurrency'
-import type {
-  OpenAICompatMediaTemplate,
-  OpenAICompatMediaTemplateSource,
+import {
+  getDefaultOpenAICompatImageEditTemplate,
+  type OpenAICompatMediaTemplate,
+  type OpenAICompatMediaTemplateSource,
 } from '@/lib/openai-compat-media-template'
 import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template/validator'
 
@@ -94,6 +95,9 @@ interface StoredModel {
   compatMediaTemplate?: OpenAICompatMediaTemplate
   compatMediaTemplateCheckedAt?: string
   compatMediaTemplateSource?: OpenAICompatMediaTemplateSource
+  compatMediaEditTemplate?: OpenAICompatMediaTemplate
+  compatMediaEditTemplateCheckedAt?: string
+  compatMediaEditTemplateSource?: OpenAICompatMediaTemplateSource
   // Non-authoritative display field; billing always uses server pricing catalog.
   price: number
   priceMin?: number
@@ -816,6 +820,31 @@ function normalizeStoredModel(raw: unknown, index: number, options?: { strictCus
     compatMediaTemplateSource = compatMediaTemplateSourceRaw
   }
 
+  const compatMediaEditTemplateRaw = raw.compatMediaEditTemplate
+  let compatMediaEditTemplate: OpenAICompatMediaTemplate | undefined
+  if (compatMediaEditTemplateRaw !== undefined && compatMediaEditTemplateRaw !== null) {
+    const validated = validateOpenAICompatMediaTemplate(compatMediaEditTemplateRaw)
+    if (!validated.ok || !validated.template) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'MODEL_COMPAT_MEDIA_EDIT_TEMPLATE_INVALID',
+        field: `models[${index}].compatMediaEditTemplate`,
+      })
+    }
+    compatMediaEditTemplate = validated.template
+  }
+  const compatMediaEditTemplateCheckedAt = readTrimmedString(raw.compatMediaEditTemplateCheckedAt) || undefined
+  const compatMediaEditTemplateSourceRaw = raw.compatMediaEditTemplateSource
+  let compatMediaEditTemplateSource: OpenAICompatMediaTemplateSource | undefined
+  if (compatMediaEditTemplateSourceRaw !== undefined && compatMediaEditTemplateSourceRaw !== null) {
+    if (!isMediaTemplateSource(compatMediaEditTemplateSourceRaw)) {
+      throw new ApiError('INVALID_PARAMS', {
+        code: 'MODEL_COMPAT_MEDIA_EDIT_TEMPLATE_SOURCE_INVALID',
+        field: `models[${index}].compatMediaEditTemplateSource`,
+      })
+    }
+    compatMediaEditTemplateSource = compatMediaEditTemplateSourceRaw
+  }
+
   return {
     modelId,
     modelKey,
@@ -827,6 +856,9 @@ function normalizeStoredModel(raw: unknown, index: number, options?: { strictCus
     ...(compatMediaTemplate ? { compatMediaTemplate } : {}),
     ...(compatMediaTemplateCheckedAt ? { compatMediaTemplateCheckedAt } : {}),
     ...(compatMediaTemplateSource ? { compatMediaTemplateSource } : {}),
+    ...(compatMediaEditTemplate ? { compatMediaEditTemplate } : {}),
+    ...(compatMediaEditTemplateCheckedAt ? { compatMediaEditTemplateCheckedAt } : {}),
+    ...(compatMediaEditTemplateSource ? { compatMediaEditTemplateSource } : {}),
     price: 0,
     ...(customPricing ? { customPricing } : {}),
   }
@@ -1097,9 +1129,17 @@ function resolveStoredMediaTemplates(
 
   return models.map((model, index) => {
     const isTargetModel = isOpenAICompatibleMediaTemplateModel(model)
+    const existing = existingByModelKey.get(model.modelKey)
 
     if (!isTargetModel) {
-      if (model.compatMediaTemplate !== undefined || model.compatMediaTemplateCheckedAt !== undefined || model.compatMediaTemplateSource !== undefined) {
+      if (
+        model.compatMediaTemplate !== undefined
+        || model.compatMediaTemplateCheckedAt !== undefined
+        || model.compatMediaTemplateSource !== undefined
+        || model.compatMediaEditTemplate !== undefined
+        || model.compatMediaEditTemplateCheckedAt !== undefined
+        || model.compatMediaEditTemplateSource !== undefined
+      ) {
         throw new ApiError('INVALID_PARAMS', {
           code: 'MODEL_COMPAT_MEDIA_TEMPLATE_NOT_ALLOWED',
           field: `models[${index}].compatMediaTemplate`,
@@ -1109,6 +1149,7 @@ function resolveStoredMediaTemplates(
     }
 
     const expectedMediaType = model.type === 'image' ? 'image' : 'video'
+    let nextModel: StoredModel
     if (model.compatMediaTemplate) {
       if (model.compatMediaTemplate.mediaType !== expectedMediaType) {
         throw new ApiError('INVALID_PARAMS', {
@@ -1116,28 +1157,69 @@ function resolveStoredMediaTemplates(
           field: `models[${index}].compatMediaTemplate.mediaType`,
         })
       }
-      return {
+      nextModel = {
         ...model,
         compatMediaTemplateCheckedAt: model.compatMediaTemplateCheckedAt || checkedAtFallback,
         compatMediaTemplateSource: model.compatMediaTemplateSource || 'ai',
       }
-    }
-
-    const existing = existingByModelKey.get(model.modelKey)
-    if (existing?.compatMediaTemplate) {
-      return {
+    } else if (existing?.compatMediaTemplate) {
+      nextModel = {
         ...model,
         compatMediaTemplate: existing.compatMediaTemplate,
         compatMediaTemplateCheckedAt: existing.compatMediaTemplateCheckedAt || checkedAtFallback,
         compatMediaTemplateSource: existing.compatMediaTemplateSource || 'manual',
       }
+    } else {
+      nextModel = {
+        ...model,
+        compatMediaTemplate: getDefaultMediaTemplate(expectedMediaType),
+        compatMediaTemplateCheckedAt: checkedAtFallback,
+        compatMediaTemplateSource: 'manual',
+      }
+    }
+
+    if (nextModel.type !== 'image') {
+      if (
+        nextModel.compatMediaEditTemplate !== undefined
+        || nextModel.compatMediaEditTemplateCheckedAt !== undefined
+        || nextModel.compatMediaEditTemplateSource !== undefined
+      ) {
+        throw new ApiError('INVALID_PARAMS', {
+          code: 'MODEL_COMPAT_MEDIA_EDIT_TEMPLATE_NOT_ALLOWED',
+          field: `models[${index}].compatMediaEditTemplate`,
+        })
+      }
+      return nextModel
+    }
+
+    if (nextModel.compatMediaEditTemplate) {
+      if (nextModel.compatMediaEditTemplate.mediaType !== 'image') {
+        throw new ApiError('INVALID_PARAMS', {
+          code: 'MODEL_COMPAT_MEDIA_EDIT_TEMPLATE_MEDIATYPE_MISMATCH',
+          field: `models[${index}].compatMediaEditTemplate.mediaType`,
+        })
+      }
+      return {
+        ...nextModel,
+        compatMediaEditTemplateCheckedAt: nextModel.compatMediaEditTemplateCheckedAt || checkedAtFallback,
+        compatMediaEditTemplateSource: nextModel.compatMediaEditTemplateSource || 'ai',
+      }
+    }
+
+    if (existing?.compatMediaEditTemplate) {
+      return {
+        ...nextModel,
+        compatMediaEditTemplate: existing.compatMediaEditTemplate,
+        compatMediaEditTemplateCheckedAt: existing.compatMediaEditTemplateCheckedAt || checkedAtFallback,
+        compatMediaEditTemplateSource: existing.compatMediaEditTemplateSource || 'manual',
+      }
     }
 
     return {
-      ...model,
-      compatMediaTemplate: getDefaultMediaTemplate(expectedMediaType),
-      compatMediaTemplateCheckedAt: checkedAtFallback,
-      compatMediaTemplateSource: 'manual',
+      ...nextModel,
+      compatMediaEditTemplate: getDefaultOpenAICompatImageEditTemplate(),
+      compatMediaEditTemplateCheckedAt: checkedAtFallback,
+      compatMediaEditTemplateSource: 'manual',
     }
   })
 }

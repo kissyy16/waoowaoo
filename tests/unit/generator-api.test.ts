@@ -114,8 +114,104 @@ describe('generator-api gateway routing', () => {
     })
 
     expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledTimes(1)
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      template: expect.objectContaining({
+        create: expect.objectContaining({ path: '/v1/images/generations' }),
+      }),
+    }))
     expect(createImageGeneratorMock).not.toHaveBeenCalled()
     expect(result).toEqual({ success: true, imageUrl: 'compat-template-image' })
+  })
+
+  it('uses image edit template for openai-compatible requests with reference images', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'gpt-image-2',
+      modelKey: 'openai-compatible:oa-1::gpt-image-2',
+      mediaType: 'image',
+      compatMediaTemplate: {
+        version: 1,
+        mediaType: 'image',
+        mode: 'sync',
+        create: { method: 'POST', path: '/images/generations' },
+        response: { outputUrlPath: '$.data[0].url' },
+      },
+      compatMediaEditTemplate: {
+        version: 1,
+        mediaType: 'image',
+        mode: 'sync',
+        create: {
+          method: 'POST',
+          path: '/images/edits',
+          contentType: 'multipart/form-data',
+          multipartFileFields: ['image'],
+          bodyTemplate: {
+            model: '{{model}}',
+            prompt: '{{prompt}}',
+            image: '{{images}}',
+          },
+        },
+        response: {
+          outputUrlsPath: '$.data',
+          outputUrlPath: '$.data[0].b64_json',
+        },
+      },
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    await generateImage('user-1', 'openai-compatible:oa-1::gpt-image-2', '裤子改为短裤', {
+      referenceImages: ['data:image/png;base64,abc'],
+      size: '1024x1024',
+    })
+
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledTimes(1)
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      referenceImages: ['data:image/png;base64,abc'],
+      template: expect.objectContaining({
+        create: expect.objectContaining({
+          path: '/images/edits',
+          contentType: 'multipart/form-data',
+          multipartFileFields: ['image'],
+        }),
+      }),
+    }))
+    expect(generateImageViaOpenAICompatMock).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the default image edit template when reference images are present', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'gpt-image-2',
+      modelKey: 'openai-compatible:oa-1::gpt-image-2',
+      mediaType: 'image',
+      compatMediaTemplate: {
+        version: 1,
+        mediaType: 'image',
+        mode: 'sync',
+        create: { method: 'POST', path: '/images/generations' },
+        response: { outputUrlPath: '$.data[0].url' },
+      },
+    })
+    resolveModelGatewayRouteMock.mockReturnValueOnce('openai-compat')
+
+    await generateImage('user-1', 'openai-compatible:oa-1::gpt-image-2', '裤子改为短裤', {
+      referenceImages: ['data:image/png;base64,abc'],
+    })
+
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      template: expect.objectContaining({
+        mediaType: 'image',
+        mode: 'sync',
+        create: expect.objectContaining({
+          path: '/images/edits',
+          contentType: 'multipart/form-data',
+          multipartFileFields: ['image'],
+          bodyTemplate: expect.objectContaining({
+            image: '{{images}}',
+          }),
+        }),
+      }),
+    }))
   })
 
   it('routes official image requests to provider generator', async () => {

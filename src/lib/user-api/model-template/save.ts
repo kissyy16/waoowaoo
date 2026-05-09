@@ -2,7 +2,10 @@ import { prisma } from '@/lib/prisma'
 import { composeModelKey } from '@/lib/model-config-contract'
 import { getProviderKey } from '@/lib/api-config'
 import { getSystemConfigOwnerUserId } from '@/lib/system-config-owner'
-import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
+import {
+  getDefaultOpenAICompatImageEditTemplate,
+  type OpenAICompatMediaTemplate,
+} from '@/lib/openai-compat-media-template'
 
 type StoredModelType = 'llm' | 'image' | 'video' | 'audio' | 'lipsync'
 
@@ -134,6 +137,7 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
       type: input.type,
       provider: input.providerId,
     }
+  const shouldBackfillImageEditTemplate = input.type === 'image' && !baseRecord.compatMediaEditTemplate
 
   const nextRecord: StoredModelRecord = {
     ...baseRecord,
@@ -145,6 +149,13 @@ export async function saveModelTemplateConfiguration(input: SaveModelTemplateInp
     compatMediaTemplate: input.template,
     compatMediaTemplateCheckedAt: checkedAt,
     compatMediaTemplateSource: input.source,
+    ...(shouldBackfillImageEditTemplate
+      ? {
+        compatMediaEditTemplate: getDefaultOpenAICompatImageEditTemplate(),
+        compatMediaEditTemplateCheckedAt: checkedAt,
+        compatMediaEditTemplateSource: 'manual',
+      }
+      : {}),
     enabled: baseRecord.enabled === false ? false : true,
   }
 

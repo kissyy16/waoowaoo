@@ -11,6 +11,7 @@ import { logInfo as _ulogInfo } from '@/lib/logging/core'
 import { createAudioGenerator, createImageGenerator, createVideoGenerator } from './generators/factory'
 import type { GenerateResult } from './generators/base'
 import { getProviderConfig, getProviderKey, resolveModelSelection } from './api-config'
+import { getDefaultOpenAICompatImageEditTemplate } from './openai-compat-media-template'
 import {
     generateImageViaOpenAICompat,
     generateImageViaOpenAICompatTemplate,
@@ -108,17 +109,22 @@ export async function generateImage(
     const { referenceImages, ...generatorOptions } = options || {}
     if (gatewayRoute === 'openai-compat') {
         const compatTemplate = selection.compatMediaTemplate
-        if (providerKey === 'openai-compatible' && !compatTemplate) {
+        const referenceImageList = referenceImages || []
+        const hasReferenceImages = referenceImageList.length > 0
+        const compatImageTemplate = hasReferenceImages
+            ? (selection.compatMediaEditTemplate || getDefaultOpenAICompatImageEditTemplate())
+            : compatTemplate
+        if (providerKey === 'openai-compatible' && !compatImageTemplate) {
             throw new Error(`MODEL_COMPAT_MEDIA_TEMPLATE_REQUIRED: ${selection.modelKey}`)
         }
-        if (compatTemplate) {
+        if (compatImageTemplate) {
             return await generateImageViaOpenAICompatTemplate({
                 userId,
                 providerId: selection.provider,
                 modelId: selection.modelId,
                 modelKey: selection.modelKey,
                 prompt,
-                referenceImages,
+                referenceImages: referenceImageList,
                 options: {
                     ...generatorOptions,
                     provider: selection.provider,
@@ -126,7 +132,7 @@ export async function generateImage(
                     modelKey: selection.modelKey,
                 },
                 profile: 'openai-compatible',
-                template: compatTemplate,
+                template: compatImageTemplate,
             })
         }
 

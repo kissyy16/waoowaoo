@@ -194,6 +194,35 @@ describe('user-api model template schema', () => {
     expect(result.template?.create.multipartFileFields).toEqual(['input_reference'])
   })
 
+  it('accepts sync image edit templates with reference image multipart fields', () => {
+    const result = validateOpenAICompatMediaTemplate({
+      version: 1,
+      mediaType: 'image',
+      mode: 'sync',
+      create: {
+        method: 'POST',
+        path: '/images/edits',
+        contentType: 'multipart/form-data',
+        multipartFileFields: ['image'],
+        bodyTemplate: {
+          model: '{{model}}',
+          prompt: '{{prompt}}',
+          image: '{{images}}',
+        },
+      },
+      response: {
+        outputUrlPath: '$.data[0].b64_json',
+        outputUrlsPath: '$.data',
+        errorPath: '$.error.message',
+      },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(result.template?.create.bodyTemplate).toMatchObject({
+      image: '{{images}}',
+    })
+  })
+
   it('rejects multipart file fields that are not present in bodyTemplate', () => {
     const result = validateOpenAICompatMediaTemplate({
       version: 1,

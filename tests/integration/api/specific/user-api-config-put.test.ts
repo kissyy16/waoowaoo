@@ -1167,6 +1167,27 @@ describe('api specific - user api-config PUT provider uniqueness', () => {
     })
     expect(savedModel?.compatMediaTemplateSource).toBe('manual')
     expect(typeof savedModel?.compatMediaTemplateCheckedAt).toBe('string')
+    expect(savedModel?.compatMediaEditTemplate).toMatchObject({
+      version: 1,
+      mediaType: 'image',
+      mode: 'sync',
+      create: {
+        path: '/images/edits',
+        contentType: 'multipart/form-data',
+        multipartFileFields: ['image'],
+        bodyTemplate: {
+          model: '{{model}}',
+          prompt: '{{prompt}}',
+          image: '{{images}}',
+        },
+      },
+      response: {
+        outputUrlPath: '$.data[0].b64_json',
+        outputUrlsPath: '$.data',
+      },
+    })
+    expect(savedModel?.compatMediaEditTemplateSource).toBe('manual')
+    expect(typeof savedModel?.compatMediaEditTemplateCheckedAt).toBe('string')
   })
 
   it('backfills default compatMediaTemplate for openai-compatible video model when missing', async () => {
@@ -1226,6 +1247,56 @@ describe('api specific - user api-config PUT provider uniqueness', () => {
     })
     expect(savedModel?.compatMediaTemplateSource).toBe('manual')
     expect(typeof savedModel?.compatMediaTemplateCheckedAt).toBe('string')
+    expect(savedModel?.compatMediaEditTemplate).toBeUndefined()
+    expect(savedModel?.compatMediaEditTemplateSource).toBeUndefined()
+  })
+
+  it('rejects compatMediaEditTemplate for openai-compatible video model', async () => {
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/api-config/route')
+
+    const req = buildMockRequest({
+      path: '/api/user/api-config',
+      method: 'PUT',
+      body: {
+        providers: [
+          { id: 'openai-compatible:oa-1', name: 'OpenAI Compat', baseUrl: 'https://compat.test/v1', apiKey: 'oa-key' },
+        ],
+        models: [
+          {
+            modelId: 'veo-2',
+            modelKey: 'openai-compatible:oa-1::veo-2',
+            name: 'Veo 2',
+            type: 'video',
+            provider: 'openai-compatible:oa-1',
+            compatMediaEditTemplate: {
+              version: 1,
+              mediaType: 'image',
+              mode: 'sync',
+              create: {
+                method: 'POST',
+                path: '/images/edits',
+                contentType: 'multipart/form-data',
+                multipartFileFields: ['image'],
+                bodyTemplate: {
+                  model: '{{model}}',
+                  prompt: '{{prompt}}',
+                  image: '{{images}}',
+                },
+              },
+              response: {
+                outputUrlPath: '$.data[0].b64_json',
+              },
+            },
+          },
+        ],
+      },
+    })
+
+    const res = await route.PUT(req, routeContext)
+    expect(res.status).toBe(400)
+    expect(prismaMock.userPreference.upsert).not.toHaveBeenCalled()
   })
 
   it('keeps explicit compatMediaTemplate for openai-compatible video model', async () => {

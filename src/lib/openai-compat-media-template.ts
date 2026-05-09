@@ -50,6 +50,30 @@ export interface OpenAICompatMediaTemplate {
   polling?: TemplatePollingConfig
 }
 
+export function getDefaultOpenAICompatImageEditTemplate(): OpenAICompatMediaTemplate {
+  return {
+    version: 1,
+    mediaType: 'image',
+    mode: 'sync',
+    create: {
+      method: 'POST',
+      path: '/images/edits',
+      contentType: 'multipart/form-data',
+      multipartFileFields: ['image'],
+      bodyTemplate: {
+        model: '{{model}}',
+        prompt: '{{prompt}}',
+        image: '{{images}}',
+      },
+    },
+    response: {
+      outputUrlPath: '$.data[0].b64_json',
+      outputUrlsPath: '$.data',
+      errorPath: '$.error.message',
+    },
+  }
+}
+
 export type OpenAICompatMediaTemplateSource = 'ai' | 'manual'
 
 export const TEMPLATE_PLACEHOLDER_ALLOWLIST = new Set([

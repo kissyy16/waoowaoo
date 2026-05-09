@@ -90,6 +90,33 @@ describe('generator-api requires compat media template for openai-compatible med
     expect(generateImageViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
   })
 
+  it('uses the default edit template for image requests with references even when generation template is missing', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'gpt-image-2',
+      modelKey: 'openai-compatible:oa-1::gpt-image-2',
+      mediaType: 'image',
+      compatMediaTemplate: undefined,
+    })
+
+    const result = await generateImage('user-1', 'openai-compatible:oa-1::gpt-image-2', '裤子改为短裤', {
+      referenceImages: ['data:image/png;base64,abc'],
+    })
+
+    expect(result.success).toBe(true)
+    expect(generateImageViaOpenAICompatTemplateMock).toHaveBeenCalledWith(expect.objectContaining({
+      referenceImages: ['data:image/png;base64,abc'],
+      template: expect.objectContaining({
+        create: expect.objectContaining({
+          path: '/images/edits',
+          contentType: 'multipart/form-data',
+          multipartFileFields: ['image'],
+        }),
+      }),
+    }))
+    expect(generateImageViaOpenAICompatMock).not.toHaveBeenCalled()
+  })
+
   it('throws for video model without compatMediaTemplate', async () => {
     resolveModelSelectionMock.mockResolvedValueOnce({
       provider: 'openai-compatible:oa-1',
