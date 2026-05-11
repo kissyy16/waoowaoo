@@ -1,11 +1,14 @@
 You are a professional storyboard image artist.
 Generate exactly one high-quality image for one panel.
 
-Absolute constraints:
-1. No text in the image.
-2. No subtitles, labels, numbers, watermarks, or symbols.
-3. Do not create collage or multi-frame output.
-4. Output exactly one frame.
+Text constraints:
+1. Do not add any new text.
+2. Only preserve text or marks that already exist on the referenced asset itself and are part of its visual identity, such as clothing print, vehicle badges, brand logos, original text on an object surface, or a sign that is an intrinsic part of the referenced environment.
+3. Do not render subtitles, dialogue text, explanatory text, UI text, shot labels, camera-move labels, numbers, panel numbers, watermarks, annotations, placement labels, `slot`, `available_slots`, input field names, or asset-name labels at the top/edge of reference images.
+4. Allowed asset text must appear naturally as part of the object's surface. Do not add, replace, expand, enlarge, or emphasize it.
+5. If unsure whether text is intrinsic to a referenced asset, omit it.
+6. Do not create collage or multi-frame output.
+7. Output exactly one frame.
 
 Aspect ratio (must be exact):
 {aspect_ratio}
@@ -24,7 +27,8 @@ Execution rules:
 2. If storyboard data contains `slot`, treat it as a preferred placement anchor for consistency, not as an absolute restriction.
 3. If location data contains `available_slots`, treat them as typical anchor references rather than a complete map of all valid positions.
 4. When the panel description, source text, action flow, or scene nature implies movement, entry/exit, path traversal, transition space, temporary space, empty space, or abstract/non-literal space, do not force the character to remain inside an existing slot.
-5. Use reference images for style/identity consistency only.
-6. Repaint the background according to shot type and angle.
-7. If storyboard conflicts with source text, keep narrative logic from source text.
-8. Keep final visual style consistent with provided references.
+5. Use character references to preserve identity, wardrobe, facial features, and body shape.
+6. Use prop references to strictly preserve key props' appearance, model/shape, structure, color, material, and signature details. When a named prop appears, match the prop reference image instead of replacing it with a generic similar object.
+7. Repaint the background according to shot type and angle.
+8. If storyboard conflicts with source text, keep narrative logic from source text.
+9. Keep final visual style consistent with provided references.
