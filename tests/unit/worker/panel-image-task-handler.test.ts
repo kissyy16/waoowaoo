@@ -24,13 +24,30 @@ const sharedMock = vi.hoisted(() => ({
     locations: [
       {
         name: 'Old Town',
+        assetKind: 'location',
         images: [
           {
+            id: 'location-image-1',
             isSelected: true,
             description: '雨夜街道',
             availableSlots: JSON.stringify([
               '街道左侧靠墙的留白位置',
             ]),
+            imageUrl: 'cos/location-ref.png',
+          },
+        ],
+      },
+      {
+        name: '亮黄色 smart 精灵#6',
+        summary: '亮黄色四门轿跑车，黑色车顶，前机盖双黑色竖条纹',
+        assetKind: 'prop',
+        selectedImageId: 'prop-image-1',
+        images: [
+          {
+            id: 'prop-image-1',
+            isSelected: true,
+            description: '亮黄色 smart 精灵#6，黑色车顶，前机盖双黑色竖条纹，车身侧面黑色饰条',
+            imageUrl: 'cos/prop-smart-6.png',
           },
         ],
       },
@@ -109,6 +126,7 @@ describe('worker panel-image-task-handler behavior', () => {
       videoPrompt: 'dramatic',
       location: 'Old Town',
       characters: JSON.stringify([{ name: 'Hero', appearance: 'default', slot: '街道左侧靠墙的留白位置' }]),
+      props: JSON.stringify(['亮黄色 smart 精灵#6']),
       srtSegment: '台词片段',
       photographyRules: null,
       actingNotes: null,
@@ -162,6 +180,16 @@ describe('worker panel-image-task-handler behavior', () => {
         storyboard_text_json_input: expect.stringContaining('"available_slots"'),
       }),
     }))
+    expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        storyboard_text_json_input: expect.stringContaining('"prop_references"'),
+      }),
+    }))
+    expect(promptMock.buildPrompt).toHaveBeenCalledWith(expect.objectContaining({
+      variables: expect.objectContaining({
+        storyboard_text_json_input: expect.stringContaining('亮黄色 smart 精灵#6'),
+      }),
+    }))
 
     expect(prismaMock.novelPromotionPanel.update).toHaveBeenCalledWith({
       where: { id: 'panel-1' },
@@ -187,6 +215,7 @@ describe('worker panel-image-task-handler behavior', () => {
       videoPrompt: 'dramatic',
       location: 'Old Town',
       characters: '[]',
+      props: null,
       srtSegment: null,
       photographyRules: null,
       actingNotes: null,

@@ -27,6 +27,7 @@ interface CharacterLike {
 }
 
 interface LocationImageLike {
+  id?: string
   description?: string | null
   availableSlots?: string | null
   imageIndex?: number
@@ -35,7 +36,10 @@ interface LocationImageLike {
 }
 
 interface LocationLike {
+  assetKind?: string | null
   name: string
+  summary?: string | null
+  selectedImageId?: string | null
   images?: LocationImageLike[]
 }
 
@@ -49,6 +53,7 @@ interface PanelLike {
   sketchImageUrl?: string | null
   characters?: string | null
   location?: string | null
+  props?: string | null
 }
 
 export interface PanelCharacterReference {
@@ -76,6 +81,30 @@ export function parseJsonStringArray(value: unknown): string[] {
   } catch {
     return []
   }
+}
+
+export function parseNameReferenceArray(value: unknown): string[] {
+  if (!value) return []
+  const raw = typeof value === 'string'
+    ? (() => {
+      try {
+        return JSON.parse(value)
+      } catch {
+        return null
+      }
+    })()
+    : value
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => {
+      if (typeof item === 'string') return item.trim()
+      if (item && typeof item === 'object') {
+        const name = (item as { name?: unknown }).name
+        return typeof name === 'string' ? name.trim() : ''
+      }
+      return ''
+    })
+    .filter(Boolean)
 }
 
 export function parseImageUrls(value: string | null | undefined, fieldName: string): string[] {
@@ -222,6 +251,27 @@ export function findCharacterByName<T extends { name: string }>(characters: T[],
   return undefined
 }
 
+function readAssetKind(location: LocationLike): string {
+  return typeof location.assetKind === 'string' && location.assetKind.trim()
+    ? location.assetKind
+    : 'location'
+}
+
+function nameMatches(assetName: string, referenceName: string): boolean {
+  return assetName.toLowerCase().trim() === referenceName.toLowerCase().trim()
+}
+
+function pickSelectedLocationImage(location: LocationLike): LocationImageLike | undefined {
+  const images = location.images || []
+  if (location.selectedImageId) {
+    const selectedById = images.find((image) => image.id === location.selectedImageId)
+    if (selectedById) return selectedById
+  }
+  return images.find((image) => image.isSelected)
+    || images.find((image) => !!image.imageUrl)
+    || images[0]
+}
+
 export async function collectPanelReferenceImages(projectData: NovelProjectData, panel: PanelLike) {
   const refs: string[] = []
 
@@ -251,13 +301,25 @@ export async function collectPanelReferenceImages(projectData: NovelProjectData,
   }
 
   if (panel.location) {
-    const location = (projectData.locations || []).find((loc) => loc.name.toLowerCase() === panel.location!.toLowerCase())
+    const location = (projectData.locations || []).find(
+      (loc) => readAssetKind(loc) !== 'prop' && nameMatches(loc.name, panel.location!),
+    )
     if (location) {
-      const images = location.images || []
-      const selected = images.find((img) => img.isSelected) || images[0]
+      const selected = pickSelectedLocationImage(location)
       const signed = toSignedUrlIfCos(selected?.imageUrl, 3600)
       if (signed) refs.push(signed)
     }
+  }
+
+  const propNames = parseNameReferenceArray(panel.props)
+  for (const propName of propNames) {
+    const prop = (projectData.locations || []).find(
+      (loc) => readAssetKind(loc) === 'prop' && nameMatches(loc.name, propName),
+    )
+    if (!prop) continue
+    const selected = pickSelectedLocationImage(prop)
+    const signed = toSignedUrlIfCos(selected?.imageUrl, 3600)
+    if (signed) refs.push(signed)
   }
 
   return refs

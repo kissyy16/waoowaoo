@@ -28,7 +28,7 @@ Execution rules:
 3. If location data contains `available_slots`, treat them as typical anchor references rather than a complete map of all valid positions.
 4. When the panel description, source text, action flow, or scene nature implies movement, entry/exit, path traversal, transition space, temporary space, empty space, or abstract/non-literal space, do not force the character to remain inside an existing slot.
 5. Use character references to preserve identity, wardrobe, facial features, and body shape.
-6. Use prop references to strictly preserve key props' appearance, model/shape, structure, color, material, and signature details. When a named prop appears, match the prop reference image instead of replacing it with a generic similar object.
+6. Use prop references to strictly preserve key props' appearance, model/shape, structure, color, material, and signature details. When a named prop appears, match the prop reference image instead of replacing it with a generic similar object. If `context.prop_references` lists props, their reference images are included in the uploaded references for this task.
 7. Repaint the background according to shot type and angle.
 8. If storyboard conflicts with source text, keep narrative logic from source text.
 9. Keep final visual style consistent with provided references.

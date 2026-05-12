@@ -16,6 +16,7 @@ import {
   clampCount,
   collectPanelReferenceImages,
   findCharacterByName,
+  parseNameReferenceArray,
   parsePanelCharacterReferences,
   pickFirstString,
   resolveNovelData,
@@ -72,6 +73,7 @@ function buildPanelPromptContext(params: {
     videoPrompt: string | null
     location: string | null
     characters: string | null
+    props: string | null
     srtSegment: string | null
     photographyRules: string | null
     actingNotes: string | null
@@ -106,16 +108,50 @@ function buildPanelPromptContext(params: {
   const locationContext = (() => {
     if (!params.panel.location) return null
     const matchedLocation = (params.projectData.locations || []).find(
-      (item) => item.name.toLowerCase() === params.panel.location!.toLowerCase(),
+      (item) => (item.assetKind || 'location') !== 'prop'
+        && item.name.toLowerCase() === params.panel.location!.toLowerCase(),
     )
     if (!matchedLocation) return null
-    const selectedImage = (matchedLocation.images || []).find((item) => item.isSelected) || matchedLocation.images?.[0]
+    const selectedImage = matchedLocation.selectedImageId
+      ? (matchedLocation.images || []).find((item) => item.id === matchedLocation.selectedImageId)
+      : (matchedLocation.images || []).find((item) => item.isSelected)
+        || (matchedLocation.images || []).find((item) => !!item.imageUrl)
+        || matchedLocation.images?.[0]
     return {
       name: matchedLocation.name,
       description: selectedImage?.description || null,
       available_slots: parseLocationAvailableSlots(selectedImage?.availableSlots),
     }
   })()
+
+  const propNames = parseNameReferenceArray(params.panel.props)
+  const propContexts = propNames.map((propName) => {
+    const matchedProp = (params.projectData.locations || []).find(
+      (item) => (item.assetKind || 'location') === 'prop'
+        && item.name.toLowerCase() === propName.toLowerCase(),
+    )
+    if (!matchedProp) {
+      return {
+        name: propName,
+        description: '无道具资产数据',
+        reference_image: '未找到对应道具参考图',
+      }
+    }
+    const selectedImage = matchedProp.selectedImageId
+      ? (matchedProp.images || []).find((item) => item.id === matchedProp.selectedImageId)
+      : (matchedProp.images || []).find((item) => item.isSelected)
+        || (matchedProp.images || []).find((item) => !!item.imageUrl)
+        || matchedProp.images?.[0]
+
+    return {
+      name: matchedProp.name,
+      summary: matchedProp.summary || null,
+      description: selectedImage?.description || matchedProp.summary || '无描述',
+      reference_image: selectedImage?.imageUrl
+        ? '已作为道具参考图上传，必须严格对齐该道具外观'
+        : '该道具暂无可用参考图，仅能参考文字描述',
+    }
+  })
 
   return {
     panel: {
@@ -127,6 +163,7 @@ function buildPanelPromptContext(params: {
       video_prompt: params.panel.videoPrompt || '',
       location: params.panel.location || '',
       characters: panelCharacters,
+      props: propNames,
       source_text: params.panel.srtSegment || '',
       photography_rules: parseJsonUnknown(params.panel.photographyRules),
       acting_notes: parseJsonUnknown(params.panel.actingNotes),
@@ -134,6 +171,7 @@ function buildPanelPromptContext(params: {
     context: {
       character_appearances: characterContexts,
       location_reference: locationContext,
+      prop_references: propContexts,
     },
   }
 }
@@ -214,6 +252,7 @@ export async function handlePanelImageTask(job: Job<TaskJobData>) {
       videoPrompt: panel.videoPrompt,
       location: panel.location,
       characters: panel.characters,
+      props: panel.props,
       srtSegment: panel.srtSegment,
       photographyRules: panel.photographyRules,
       actingNotes: panel.actingNotes,
