@@ -4,11 +4,11 @@
 
 - IP：`47.95.30.221`
 - 系统：`Alibaba Cloud Linux 3.2104 LTS 64位`
-- 当前系统域名：`https://aivideo.deheshuntian.com`
-- MinIO 文件域名：`https://aivideo-files.deheshuntian.com`
+- 当前系统域名：`http://aivideo.deheshuntian.com`
+- MinIO 文件域名：`http://aivideo-files.deheshuntian.com`
 - 管理员 owner：`superadmin`
 
-本目录已固化部署参数，`docker-compose.yml` 可直接在服务器执行。部署方式统一为：本地当前代码构建成 `waoowaoo-local:latest` 镜像，再把源码、部署配置、Docker 镜像一起打成发布包，上传到服务器固定目录后执行 `docker load` 和 `docker compose up -d`。此部署流程不会拉取 `ghcr.io/saturndec/waoowaoo:latest`。
+本目录已固化部署参数，默认使用 HTTP，`docker-compose.yml` 可直接在服务器执行。部署方式统一为：本地当前代码构建成 `waoowaoo-local:latest` 镜像，再把源码、部署配置、Docker 镜像一起打成发布包，上传到服务器固定目录后执行 `docker load` 和 `docker compose up -d`。此部署流程不会拉取 `ghcr.io/saturndec/waoowaoo:latest`。
 
 ## 1. 本地打包
 
@@ -92,23 +92,27 @@ cd /opt/waoowaoo
 docker compose config --quiet
 ```
 
-如果当前只开 HTTP、还没启用 HTTPS，启动前临时改成 HTTP：
+默认配置已经使用 HTTP，可以直接启动。
+
+如果后续启用 HTTPS，先在 AI 培训平台 Nginx 中打开 `443 ssl` 和证书配置，再把当前系统的公网地址切换为 HTTPS：
 
 ```bash
 cd /opt/waoowaoo
-cp docker-compose.yml docker-compose.https.yml
+cp docker-compose.yml docker-compose.http.yml
 sed -i \
-  -e 's#https://aivideo.deheshuntian.com#http://aivideo.deheshuntian.com#g' \
-  -e 's#https://aivideo-files.deheshuntian.com#http://aivideo-files.deheshuntian.com#g' \
+  -e 's#http://aivideo.deheshuntian.com#https://aivideo.deheshuntian.com#g' \
+  -e 's#http://aivideo-files.deheshuntian.com#https://aivideo-files.deheshuntian.com#g' \
   docker-compose.yml
+
+docker compose up -d --force-recreate app
 ```
 
-正式启用 HTTPS 后恢复：
+如果需要从 HTTPS 切回 HTTP：
 
 ```bash
 cd /opt/waoowaoo
-cp docker-compose.https.yml docker-compose.yml
-docker compose up -d
+cp docker-compose.http.yml docker-compose.yml
+docker compose up -d --force-recreate app
 ```
 
 ## 4. 初始化 MySQL
@@ -309,6 +313,8 @@ cd /opt/waoowaoo
 docker compose up -d --force-recreate app
 docker compose logs -f app
 ```
+
+如果线上已经启用 HTTPS，更新包覆盖 `docker-compose.yml` 后，需要先重新执行第 3 节的 HTTPS 切换命令，再执行 `docker compose up -d --force-recreate app`。
 
 ## 10. 常用命令
 
