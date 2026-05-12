@@ -1,0 +1,103 @@
+# ============================================================
+# waoowaoo 与 AI 培训平台共服部署 Compose
+#
+# 本文件已按 deploy/ai-training-shared/.env 固化为实际参数，
+# 可直接复制到服务器执行 docker compose up -d。
+# ============================================================
+
+name: waoowaoo-shared
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2025-02-28T09-55-16Z
+    container_name: waoowaoo-minio
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+      MINIO_ROOT_USER: "minioadmin"
+      MINIO_ROOT_PASSWORD: "minioadmin"
+      MINIO_SERVER_URL: "https://aivideo-files.deheshuntian.com"
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:19000:9000"
+      - "127.0.0.1:19001:9001"
+    volumes:
+      - ./minio/data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+
+  app:
+    image: waoowaoo-local:latest
+    container_name: waoowaoo-app
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "aivideo-files.deheshuntian.com:host-gateway"
+    environment:
+      TZ: Asia/Shanghai
+      NODE_ENV: production
+      DATABASE_URL: "mysql://waoowaoo:waoowaoo123@host.docker.internal:3306/waoowaoo"
+      REDIS_HOST: host.docker.internal
+      REDIS_PORT: "6379"
+      REDIS_USERNAME: ""
+      REDIS_PASSWORD: "GYkvuiBv5MMaKqrJ1x9s"
+      REDIS_TLS: ""
+      STORAGE_TYPE: minio
+      MINIO_ENDPOINT: "https://aivideo-files.deheshuntian.com"
+      MINIO_REGION: "us-east-1"
+      MINIO_BUCKET: "waoowaoo"
+      MINIO_ACCESS_KEY: "minioadmin"
+      MINIO_SECRET_KEY: "minioadmin"
+      MINIO_FORCE_PATH_STYLE: "true"
+      NEXTAUTH_URL: "https://aivideo.deheshuntian.com"
+      INTERNAL_APP_URL: http://127.0.0.1:3000
+      NEXTAUTH_SECRET: "please-change-this-to-a-random-string"
+      AI_TRAINING_SSO_VERIFY_URL: "http://host.docker.internal/ai_training/api/sso/ticket/verify"
+      AI_TRAINING_SSO_SIGNATURE_PATH: "/api/sso/ticket/verify"
+      AI_TRAINING_SSO_CLIENT_ID: "ai-video-workshop"
+      AI_TRAINING_SSO_CLIENT_SECRET: "0316cdd7419f82c558a3f18b8ba3781a7db5fa1a12fd93d8b443b4407e507bcd"
+      AI_TRAINING_SSO_TIMEOUT_MS: "5000"
+      AUTH_REGISTRATION_ENABLED: "false"
+      AUTH_ALLOW_NON_ADMIN_LOGIN: "false"
+      SYSTEM_CONFIG_OWNER_USER_ID: "superadmin"
+      CRON_SECRET: "123123"
+      INTERNAL_TASK_TOKEN: "321321"
+      API_ENCRYPTION_KEY: "waoowaoo-opensource-fixed-key-2026"
+      WATCHDOG_INTERVAL_MS: "30000"
+      TASK_HEARTBEAT_TIMEOUT_MS: "90000"
+      QUEUE_CONCURRENCY_IMAGE: "50"
+      QUEUE_CONCURRENCY_VIDEO: "50"
+      QUEUE_CONCURRENCY_VOICE: "20"
+      QUEUE_CONCURRENCY_TEXT: "50"
+      BULL_BOARD_HOST: 0.0.0.0
+      BULL_BOARD_PORT: "3010"
+      BULL_BOARD_BASE_PATH: /admin/queues
+      BULL_BOARD_USER: "admin"
+      BULL_BOARD_PASSWORD: "2068067810b6474aa65e12692dcbe64f"
+      LOG_UNIFIED_ENABLED: "true"
+      LOG_LEVEL: "ERROR"
+      LOG_FORMAT: json
+      LOG_DEBUG_ENABLED: "false"
+      LOG_AUDIT_ENABLED: "true"
+      LOG_SERVICE: waoowaoo
+      LOG_REDACT_KEYS: password,token,ticket,apiKey,apikey,authorization,cookie,secret,access_token,refresh_token,phone,mobile,email,mail
+      BILLING_MODE: "OFF"
+      LLM_STREAM_EPHEMERAL_ENABLED: "true"
+    ports:
+      - "127.0.0.1:13000:3000"
+      - "127.0.0.1:13010:3010"
+    volumes:
+      - ./app/data:/app/data
+      - ./app/logs:/app/logs
+    depends_on:
+      minio:
+        condition: service_healthy
+    command: >
+      sh -c "
+        npx prisma db push --skip-generate &&
+        npm run start
+      "

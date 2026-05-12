@@ -1,13 +1,26 @@
 # ==================== Stage 1: Dependencies ====================
-FROM node:20-alpine AS deps
+ARG NODE_IMAGE=node:20-alpine
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
+ARG NPM_REGISTRY
+
+ENV HUSKY=0 \
+    npm_config_audit=false \
+    npm_config_fund=false \
+    npm_config_replace_registry_host=npmjs
 
 COPY package.json package-lock.json ./
 COPY prisma ./prisma
-RUN npm ci
+RUN npm config set registry "$NPM_REGISTRY" \
+    && npm config set replace-registry-host npmjs \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-retry-mintimeout 20000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm ci --no-audit --no-fund
 
 # ==================== Stage 2: Build ====================
-FROM node:20-alpine AS builder
+FROM ${NODE_IMAGE} AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -17,7 +30,7 @@ COPY . .
 RUN npm run build
 
 # ==================== Stage 3: Production ====================
-FROM node:20-alpine AS runner
+FROM ${NODE_IMAGE} AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
