@@ -38,6 +38,31 @@ describe('expandHomeStory', () => {
     })
   })
 
+  it('includes target duration when fixed duration is selected', async () => {
+    const apiFetch = vi.fn(async () => buildJsonResponse({ async: true, taskId: 'task-1' }))
+    vi.mocked(resolveTaskResponse).mockResolvedValue({
+      expandedText: '30 秒创意文本',
+    })
+
+    const result = await expandHomeStory({
+      apiFetch,
+      prompt: '都市反转短剧',
+      targetDurationSeconds: 30,
+    })
+
+    expect(apiFetch).toHaveBeenCalledWith('/api/user/ai-story-expand', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: '都市反转短剧',
+        targetDurationSeconds: 30,
+      }),
+    })
+    expect(result).toEqual({
+      expandedText: '30 秒创意文本',
+    })
+  })
+
   it('fails explicitly when the route does not return expandedText', async () => {
     const apiFetch = vi.fn(async () => buildJsonResponse({ async: true, taskId: 'task-1' }))
     vi.mocked(resolveTaskResponse).mockResolvedValue({})

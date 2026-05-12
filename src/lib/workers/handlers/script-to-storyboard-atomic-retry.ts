@@ -25,6 +25,10 @@ import {
   buildPromptAssetContext,
   compileAssetPromptFragments,
 } from '@/lib/assets/services/asset-prompt-context'
+import {
+  buildClipStoryboardDurationGuidance,
+  normalizePanelDurations,
+} from '@/lib/novel-promotion/duration-planning'
 
 type StoryboardClipInput = {
   id: string
@@ -338,6 +342,8 @@ export async function runScriptToStoryboardAtomicRetry(params: {
   clip: StoryboardClipInput
   clipIndex: number
   totalClipCount: number
+  totalTargetDurationSeconds?: number | null
+  clipTargetDurationSeconds?: number | null
   novelPromotionData: {
     characters: CharacterAsset[]
     locations: LocationAsset[]
@@ -363,6 +369,10 @@ export async function runScriptToStoryboardAtomicRetry(params: {
     clipLocation: null,
     clipProps,
   })).propsDescriptionText
+  const durationGuidance = buildClipStoryboardDurationGuidance({
+    totalTargetDurationSeconds: params.totalTargetDurationSeconds,
+    clipTargetDurationSeconds: params.clipTargetDurationSeconds,
+  })
   const baseMeta = buildStepMeta({
     target: params.retryTarget,
     clipIndex: params.clipIndex,
@@ -434,6 +444,7 @@ export async function runScriptToStoryboardAtomicRetry(params: {
     } else {
       phase1Prompt = phase1Prompt.replace('{clip_content}', clipContent)
     }
+    phase1Prompt = `${phase1Prompt}${durationGuidance}`
     phase1Panels = await runStepWithRetry({
       runStep: params.runStep,
       baseMeta,
@@ -486,11 +497,11 @@ export async function runScriptToStoryboardAtomicRetry(params: {
     phase2ActingByClipId[params.clip.id] = phase2Acting
   } else {
     const planPanels = requireRows(phase1Panels, 'storyboard.clip.phase1')
-    const phase3Prompt = params.promptTemplates.phase3DetailTemplate
+    const phase3Prompt = `${params.promptTemplates.phase3DetailTemplate
       .replace('{panels_json}', JSON.stringify(planPanels, null, 2))
       .replace('{characters_age_gender}', filteredFullDescription)
       .replace('{locations_description}', filteredLocationsDescription)
-      .replace('{props_description}', filteredPropsDescription)
+      .replace('{props_description}', filteredPropsDescription)}${durationGuidance}`
     phase3Panels = await runStepWithRetry({
       runStep: params.runStep,
       baseMeta,
@@ -505,7 +516,9 @@ export async function runScriptToStoryboardAtomicRetry(params: {
         if (filtered.length === 0) {
           throw new Error(`Phase 3 returned empty valid panels for clip ${formatClipId(params.clip)}`)
         }
-        return filtered
+        return typeof params.clipTargetDurationSeconds === 'number'
+          ? normalizePanelDurations(filtered, params.clipTargetDurationSeconds)
+          : filtered
       },
       retryStepAttempt: params.retryStepAttempt,
     })
@@ -513,8 +526,12 @@ export async function runScriptToStoryboardAtomicRetry(params: {
   }
 
   if (params.retryTarget.phase !== 'phase1') {
+    const phase3Rows = requireRows(phase3Panels, 'storyboard.clip.phase3')
+    const finalPhase3Panels = typeof params.clipTargetDurationSeconds === 'number'
+      ? normalizePanelDurations(phase3Rows, params.clipTargetDurationSeconds)
+      : phase3Rows
     const finalPanels = mergePanelsWithRules({
-      finalPanels: requireRows(phase3Panels, 'storyboard.clip.phase3'),
+      finalPanels: finalPhase3Panels,
       photographyRules: requireRows(phase2Cinematography, 'storyboard.clip.phase2.cine'),
       actingDirections: requireRows(phase2Acting, 'storyboard.clip.phase2.acting'),
     })

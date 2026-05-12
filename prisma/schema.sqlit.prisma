@@ -245,6 +245,7 @@ model NovelPromotionProject {
   videoModel      String? // 用户配置的视频模型
   audioModel      String? // 用户配置的语音模型
   videoRatio      String                    @default("9:16")
+  targetDurationSeconds Int?
   ttsRate         String                    @default("+50%")
   globalAssetText String?
   artStyle        String                    @default("american-comic")

@@ -58,8 +58,10 @@ export default function ConfigStage() {
       isSubmittingTask={runtime.isSubmittingTTS || runtime.isStartingStoryToScript}
       isSwitchingStage={runtime.isTransitioning}
       videoRatio={runtime.videoRatio ?? undefined}
+      targetDurationSeconds={runtime.targetDurationSeconds ?? null}
       artStyle={runtime.artStyle ?? undefined}
       onVideoRatioChange={runtime.onVideoRatioChange}
+      onTargetDurationChange={runtime.onTargetDurationChange}
       onArtStyleChange={runtime.onArtStyleChange}
       onNext={runtime.onRunStoryToScript}
       onSmartSplit={handleSmartSplit}

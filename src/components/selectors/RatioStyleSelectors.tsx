@@ -9,6 +9,13 @@
 import { createPortal } from 'react-dom'
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, type CSSProperties } from 'react'
 import { AppIcon } from '@/components/ui/icons'
+import {
+  TARGET_DURATION_MAX_SECONDS,
+  TARGET_DURATION_MIN_SECONDS,
+  VIDEO_DURATION_PRESET_SECONDS,
+  formatVideoDurationLabel,
+  isValidTargetDurationSeconds,
+} from '@/lib/video-duration'
 
 const TRIGGER_CLASSNAME = 'glass-input-base flex h-10 w-full items-center justify-between gap-2 px-2.5 transition-colors'
 const TRIGGER_TEXT_CLASSNAME = 'text-[13px] font-medium text-[var(--glass-text-primary)]'
@@ -25,6 +32,11 @@ interface StyleOption {
   featured?: boolean
   category?: string
   keywords?: readonly string[]
+}
+
+interface DurationOption {
+  value: number | null
+  label: string
 }
 
 function useFloatingDropdown(isOpen: boolean, minWidth: number, maxHeight = DEFAULT_MAX_HEIGHT) {
@@ -206,7 +218,7 @@ export function StyleSelector({
   const [searchText, setSearchText] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('全部')
   const [recentValues, setRecentValues] = useState<string[]>([])
-  const { triggerRef, panelRef, panelStyle } = useFloatingDropdown(isOpen, showAll ? 680 : 360, showAll ? 540 : 320)
+  const { triggerRef, panelRef, panelStyle } = useFloatingDropdown(isOpen, showAll ? 680 : 360, showAll ? 540 : 430)
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -348,7 +360,7 @@ export function StyleSelector({
       {isOpen && typeof document !== 'undefined' && createPortal(
         <div
           ref={panelRef}
-          className={`glass-surface-modal z-[9999] p-3 ${showAll ? 'overflow-y-auto app-scrollbar' : 'overflow-hidden'}`}
+          className="glass-surface-modal z-[9999] overflow-y-auto p-3 app-scrollbar"
           style={panelStyle}
         >
           {showAll ? (
@@ -458,6 +470,157 @@ export function StyleSelector({
               </button>
             </div>
           )}
+        </div>,
+        document.body,
+      )}
+    </>
+  )
+}
+
+export function DurationSelector({
+  value,
+  onChange,
+}: {
+  value: number | null
+  onChange: (value: number | null) => void
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [customValue, setCustomValue] = useState('')
+  const { triggerRef, panelRef, panelStyle } = useFloatingDropdown(isOpen, 260, 380)
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node
+      if (triggerRef.current?.contains(target)) return
+      if (panelRef.current?.contains(target)) return
+      if (isOpen) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen, panelRef, triggerRef])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setCustomValue(typeof value === 'number' ? String(value) : '')
+  }, [isOpen, value])
+
+  const options = useMemo<DurationOption[]>(() => [
+    { value: null, label: '自动' },
+    ...VIDEO_DURATION_PRESET_SECONDS.map((seconds) => ({
+      value: seconds,
+      label: `${seconds}s`,
+    })),
+  ], [])
+  const selectedLabel = formatVideoDurationLabel(value)
+  const isPresetValue = value === null || VIDEO_DURATION_PRESET_SECONDS.some((seconds) => seconds === value)
+  const customSeconds = Number(customValue)
+  const isCustomValid = Number.isInteger(customSeconds) && isValidTargetDurationSeconds(customSeconds)
+
+  const selectOption = (nextValue: number | null) => {
+    onChange(nextValue)
+    setIsOpen(false)
+  }
+
+  const applyCustomValue = () => {
+    if (!isCustomValid) return
+    onChange(customSeconds)
+    setIsOpen(false)
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`${TRIGGER_CLASSNAME} cursor-pointer`}
+        title={`视频时长：${selectedLabel}`}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <AppIcon name="clock" className="h-4 w-4 shrink-0 text-[var(--glass-accent-from)]" />
+          <span className={`${TRIGGER_TEXT_CLASSNAME} min-w-0 flex-1 truncate`}>
+            {selectedLabel}
+          </span>
+        </div>
+        <AppIcon name="chevronDown" className={`h-4 w-4 text-[var(--glass-text-tertiary)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      {isOpen && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={panelRef}
+          className="glass-surface-modal z-[9999] overflow-y-auto p-2.5 app-scrollbar"
+          style={panelStyle}
+        >
+          <div className="flex flex-col gap-2">
+            {options.map((option) => {
+              const isSelected = value === option.value
+              return (
+                <button
+                  key={option.value ?? 'auto'}
+                  type="button"
+                  onClick={() => selectOption(option.value)}
+                  className={`flex h-10 items-center justify-between gap-3 rounded-xl border px-3 text-left transition-all ${
+                    isSelected
+                      ? 'border-[var(--glass-accent-from)] bg-[var(--glass-accent-from)]/5 shadow-sm'
+                      : 'border-[var(--glass-stroke-soft)] hover:border-[var(--glass-stroke-strong)]'
+                  }`}
+                >
+                  <span className={`text-sm ${isSelected ? 'font-semibold text-[var(--glass-accent-from)]' : 'font-medium text-[var(--glass-text-primary)]'}`}>
+                    {option.label}
+                  </span>
+                  {isSelected && (
+                    <AppIcon name="check" className="h-4 w-4 shrink-0 text-[var(--glass-accent-from)]" />
+                  )}
+                </button>
+              )
+            })}
+
+            <div className={`rounded-xl border p-3 transition-all ${
+              !isPresetValue
+                ? 'border-[var(--glass-accent-from)] bg-[var(--glass-accent-from)]/5 shadow-sm'
+                : 'border-[var(--glass-stroke-soft)]'
+            }`}>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className={`text-sm ${!isPresetValue ? 'font-semibold text-[var(--glass-accent-from)]' : 'font-medium text-[var(--glass-text-primary)]'}`}>
+                  自定义
+                </span>
+                {!isPresetValue && (
+                  <AppIcon name="check" className="h-4 w-4 shrink-0 text-[var(--glass-accent-from)]" />
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="glass-input-base flex h-9 min-w-0 flex-1 items-center px-2">
+                  <input
+                    value={customValue}
+                    onChange={(event) => setCustomValue(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        applyCustomValue()
+                      }
+                    }}
+                    type="number"
+                    min={TARGET_DURATION_MIN_SECONDS}
+                    max={TARGET_DURATION_MAX_SECONDS}
+                    step={1}
+                    placeholder={`${TARGET_DURATION_MIN_SECONDS}-${TARGET_DURATION_MAX_SECONDS}`}
+                    className="min-w-0 flex-1 bg-transparent text-sm text-[var(--glass-text-primary)] outline-none placeholder:text-[var(--glass-text-tertiary)]"
+                  />
+                  <span className="shrink-0 text-xs font-medium text-[var(--glass-text-tertiary)]">s</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyCustomValue}
+                  disabled={!isCustomValid}
+                  className="glass-btn-base h-9 shrink-0 px-3 text-xs disabled:opacity-50"
+                >
+                  应用
+                </button>
+              </div>
+            </div>
+          </div>
         </div>,
         document.body,
       )}

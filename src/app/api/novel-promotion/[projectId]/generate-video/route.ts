@@ -15,6 +15,11 @@ import {
 } from '@/lib/model-capabilities/lookup'
 import { resolveBuiltinPricing } from '@/lib/model-pricing/lookup'
 import { resolveProjectModelCapabilityGenerationOptions } from '@/lib/config-service'
+import {
+  PANEL_DURATION_MAX_SECONDS,
+  PANEL_DURATION_MIN_SECONDS,
+  isValidTargetDurationSeconds,
+} from '@/lib/video-duration'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value)
@@ -181,6 +186,48 @@ function buildVideoPanelBillingInfoOrThrow(payload: unknown) {
   }
 }
 
+function readPanelDurationSeconds(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  const seconds = Math.round(value)
+  if (seconds < PANEL_DURATION_MIN_SECONDS || seconds > PANEL_DURATION_MAX_SECONDS) return null
+  return seconds
+}
+
+async function readProjectTargetDurationSeconds(projectId: string): Promise<number | null> {
+  const model = prisma.novelPromotionProject as unknown as {
+    findUnique: (args: {
+      where: { projectId: string }
+      select: { targetDurationSeconds: true }
+    }) => Promise<{ targetDurationSeconds: number | null } | null>
+  }
+  const row = await model.findUnique({
+    where: { projectId },
+    select: { targetDurationSeconds: true },
+  })
+  const value = row?.targetDurationSeconds
+  return typeof value === 'number' && isValidTargetDurationSeconds(value) ? value : null
+}
+
+function withFixedTargetPanelDuration(
+  payload: unknown,
+  panelDuration: unknown,
+  targetDurationSeconds: number | null,
+): Record<string, unknown> {
+  const base = isRecord(payload) ? payload : {}
+  if (targetDurationSeconds === null) return base
+  const duration = readPanelDurationSeconds(panelDuration)
+  if (duration === null) return base
+  const generationOptions = isRecord(base.generationOptions) ? base.generationOptions : {}
+  return {
+    ...base,
+    usePanelDuration: true,
+    generationOptions: {
+      ...generationOptions,
+      duration,
+    },
+  }
+}
+
 export const POST = apiHandler(async (
   request: NextRequest,
   context: { params: Promise<{ projectId: string }> },
@@ -195,6 +242,7 @@ export const POST = apiHandler(async (
   requireVideoModelKeyFromPayload(body)
   const locale = resolveRequiredTaskLocale(request, body)
   const isBatch = body?.all === true
+  const targetDurationSeconds = await readProjectTargetDurationSeconds(projectId)
 
   validateFirstLastFrameModel(body?.firstLastFrame)
   await validateVideoCapabilityCombination({
@@ -218,7 +266,7 @@ export const POST = apiHandler(async (
           { videoUrl: '' },
         ],
       },
-      select: { id: true },
+      select: { id: true, duration: true },
     })
 
     if (panels.length === 0) {
@@ -226,8 +274,9 @@ export const POST = apiHandler(async (
     }
 
     const results = await Promise.all(
-      panels.map(async (panel) =>
-        submitTask({
+      panels.map(async (panel) => {
+        const taskPayload = withFixedTargetPanelDuration(body, panel.duration, targetDurationSeconds)
+        return await submitTask({
           userId: session.user.id,
           locale,
           requestId: getRequestId(request),
@@ -236,13 +285,13 @@ export const POST = apiHandler(async (
           type: TASK_TYPE.VIDEO_PANEL,
           targetType: 'NovelPromotionPanel',
           targetId: panel.id,
-          payload: withTaskUiPayload(body, {
+          payload: withTaskUiPayload(taskPayload, {
             hasOutputAtStart: await hasPanelVideoOutput(panel.id),
           }),
           dedupeKey: `video_panel:${panel.id}`,
-          billingInfo: buildVideoPanelBillingInfoOrThrow(body),
-        }),
-      ),
+          billingInfo: buildVideoPanelBillingInfoOrThrow(taskPayload),
+        })
+      }),
     )
 
     return NextResponse.json({ tasks: results, total: panels.length })
@@ -256,13 +305,14 @@ export const POST = apiHandler(async (
 
   const panel = await prisma.novelPromotionPanel.findFirst({
     where: { storyboardId, panelIndex: Number(panelIndex) },
-    select: { id: true },
+    select: { id: true, duration: true },
   })
 
   if (!panel) {
     throw new ApiError('NOT_FOUND')
   }
 
+  const taskPayload = withFixedTargetPanelDuration(body, panel.duration, targetDurationSeconds)
   const result = await submitTask({
     userId: session.user.id,
     locale,
@@ -271,11 +321,11 @@ export const POST = apiHandler(async (
     type: TASK_TYPE.VIDEO_PANEL,
     targetType: 'NovelPromotionPanel',
     targetId: panel.id,
-    payload: withTaskUiPayload(body, {
+    payload: withTaskUiPayload(taskPayload, {
       hasOutputAtStart: await hasPanelVideoOutput(panel.id),
     }),
     dedupeKey: `video_panel:${panel.id}`,
-    billingInfo: buildVideoPanelBillingInfoOrThrow(body),
+    billingInfo: buildVideoPanelBillingInfoOrThrow(taskPayload),
   })
 
   return NextResponse.json(result)

@@ -8,6 +8,7 @@ import {
   DEFAULT_ANALYSIS_WORKFLOW_CONCURRENCY,
   normalizeWorkflowConcurrencyValue,
 } from '@/lib/workflow-concurrency'
+import { buildStoryToScriptDurationGuidance } from '@/lib/novel-promotion/duration-planning'
 
 export type StoryToScriptStepMeta = {
   stepId: string
@@ -59,6 +60,7 @@ export type StoryToScriptPromptTemplates = {
 export type StoryToScriptOrchestratorInput = {
   concurrency?: number
   content: string
+  targetDurationSeconds?: number | null
   baseCharacters: string[]
   baseLocations: string[]
   baseProps?: string[]
@@ -247,6 +249,7 @@ export async function runStoryToScriptOrchestrator(
   const {
     concurrency: rawConcurrency,
     content,
+    targetDurationSeconds,
     baseCharacters,
     baseLocations,
     baseProps = [],
@@ -411,7 +414,8 @@ export async function runStoryToScriptOrchestrator(
     props_lib_name: propsLibName || '无',
     characters_introduction: charactersIntroduction || '暂无角色介绍',
   })
-  const splitPrompt = `${splitPromptBase}${CLIP_BOUNDARY_SUFFIX}`
+  const durationGuidance = buildStoryToScriptDurationGuidance(targetDurationSeconds)
+  const splitPrompt = `${splitPromptBase}${durationGuidance}${CLIP_BOUNDARY_SUFFIX}`
 
   let splitStep: StoryToScriptStepOutput | null = null
   let clipList: StoryToScriptClipCandidate[] = []
@@ -525,14 +529,14 @@ export async function runStoryToScriptOrchestrator(
       }
 
       try {
-        const screenplayPrompt = applyTemplate(promptTemplates.screenplayPromptTemplate, {
+        const screenplayPrompt = `${applyTemplate(promptTemplates.screenplayPromptTemplate, {
           clip_content: clip.content,
           locations_lib_name: locationsLibName || '无',
           characters_lib_name: charactersLibName || '无',
           props_lib_name: propsLibName || '无',
           characters_introduction: charactersIntroduction || '暂无角色介绍',
           clip_id: clip.id,
-        })
+        })}${durationGuidance}`
 
         const { parsed: screenplay } = await runStepWithRetry(
           runStep,

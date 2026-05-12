@@ -11,6 +11,7 @@ export type ScriptToStoryboardRunParams = {
   temperature?: number
   reasoning?: boolean
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
+  targetDurationSeconds?: number | null
 }
 
 export type ScriptToStoryboardRunResult = RunResult
@@ -79,6 +80,7 @@ export function useScriptToStoryboardRunStream({ projectId, episodeId }: UseScri
       temperature: params.temperature,
       reasoning: params.reasoning,
       reasoningEffort: params.reasoningEffort,
+      ...(typeof params.targetDurationSeconds === 'number' ? { targetDurationSeconds: params.targetDurationSeconds } : {}),
       async: true,
       displayMode: 'detail',
     }),

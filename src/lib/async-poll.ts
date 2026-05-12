@@ -441,6 +441,193 @@ function readFirstStringPath(payload: unknown, paths: string[]): string {
     return ''
 }
 
+function readFirstUrlPath(payload: unknown, paths: string[]): string {
+    for (const path of paths) {
+        const value = readJsonPath(payload, path)
+        if (typeof value !== 'string') continue
+        const trimmed = value.trim()
+        if (looksLikeHttpUrl(trimmed)) return trimmed
+    }
+    return ''
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function looksLikeHttpUrl(value: string): boolean {
+    return /^https?:\/\/\S+$/i.test(value.trim())
+}
+
+function looksLikeVideoUrl(value: string): boolean {
+    const trimmed = value.trim()
+    if (!looksLikeHttpUrl(trimmed)) return false
+    try {
+        const parsed = new URL(trimmed)
+        return /\.(mp4|mov|m4v|webm|m3u8)(?:$|[?#])/i.test(parsed.pathname)
+    } catch {
+        return /\.(mp4|mov|m4v|webm|m3u8)(?:$|[?#])/i.test(trimmed)
+    }
+}
+
+function normalizePathToken(value: string): string {
+    return value.replace(/[^a-z0-9]/gi, '').toLowerCase()
+}
+
+function isLikelyOutputUrlPath(path: string): boolean {
+    const normalized = normalizePathToken(path)
+    if (!normalized) return false
+    if (/(prompt|inputreference|referenceimage|image|thumbnail|cover|avatar|poster)/i.test(normalized)) {
+        return false
+    }
+    return /(videourl|video|outputurl|output|resulturl|result|downloadurl|download|contenturl|content|fileurl|file|url|urls)/i
+        .test(normalized)
+}
+
+function collectCandidateUrls(
+    value: unknown,
+    path: string,
+    candidates: Array<{ url: string; path: string; score: number }>,
+) {
+    if (typeof value === 'string') {
+        const trimmed = value.trim()
+        if (!looksLikeHttpUrl(trimmed)) return
+        if (!isLikelyOutputUrlPath(path) && !looksLikeVideoUrl(trimmed)) return
+
+        let score = 0
+        const normalizedPath = normalizePathToken(path)
+        if (looksLikeVideoUrl(trimmed)) score += 100
+        if (/(videourl|video)/.test(normalizedPath)) score += 80
+        if (/(outputurl|resulturl|downloadurl|contenturl|fileurl)/.test(normalizedPath)) score += 70
+        if (/(output|result|download|content|file)/.test(normalizedPath)) score += 40
+        if (/(url|urls)$/.test(normalizedPath)) score += 20
+
+        candidates.push({ url: trimmed, path, score })
+        return
+    }
+
+    if (Array.isArray(value)) {
+        value.forEach((item, index) => collectCandidateUrls(item, `${path}[${index}]`, candidates))
+        return
+    }
+
+    if (!isRecord(value)) return
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+        collectCandidateUrls(nestedValue, path ? `${path}.${key}` : key, candidates)
+    }
+}
+
+function readLikelyVideoUrl(payload: unknown): string {
+    const candidates: Array<{ url: string; path: string; score: number }> = []
+    collectCandidateUrls(payload, '$', candidates)
+    candidates.sort((a, b) => b.score - a.score)
+    return candidates[0]?.url || ''
+}
+
+export function readNewApiVideoUrl(payload: unknown): string {
+    return readFirstUrlPath(payload, [
+        '$.output_url',
+        '$.result_url',
+        '$.video_url',
+        '$.url',
+        '$.download_url',
+        '$.content_url',
+        '$.file_url',
+        '$.video',
+        '$.video.url',
+        '$.video.video_url',
+        '$.video.output_url',
+        '$.content.url',
+        '$.content.video_url',
+        '$.content.output_url',
+        '$.data.output_url',
+        '$.data.result_url',
+        '$.data.video_url',
+        '$.data.url',
+        '$.data.download_url',
+        '$.data.content_url',
+        '$.data.file_url',
+        '$.data.video',
+        '$.data.video.url',
+        '$.data.video.video_url',
+        '$.data.video.output_url',
+        '$.data.content.url',
+        '$.data.content.video_url',
+        '$.data.content.output_url',
+        '$.output.output_url',
+        '$.output.video_url',
+        '$.output.url',
+        '$.output.download_url',
+        '$.output.content_url',
+        '$.output.file_url',
+        '$.output[0]',
+        '$.output[0].url',
+        '$.output[0].video_url',
+        '$.output[0].output_url',
+        '$.output[0].download_url',
+        '$.output.video.url',
+        '$.output.video.video_url',
+        '$.result.output_url',
+        '$.result.video_url',
+        '$.result.url',
+        '$.result.download_url',
+        '$.result.content_url',
+        '$.result.file_url',
+        '$.result[0]',
+        '$.result[0].url',
+        '$.result[0].video_url',
+        '$.result[0].output_url',
+        '$.result[0].download_url',
+        '$.result.video.url',
+        '$.result.video.video_url',
+        '$.data.output.output_url',
+        '$.data.output.video_url',
+        '$.data.output.url',
+        '$.data.output.download_url',
+        '$.data.output.content_url',
+        '$.data.output.file_url',
+        '$.data.output[0]',
+        '$.data.output[0].url',
+        '$.data.output[0].video_url',
+        '$.data.output[0].output_url',
+        '$.data.output[0].download_url',
+        '$.data.output.video.url',
+        '$.data.output.video.video_url',
+        '$.data.result.output_url',
+        '$.data.result.video_url',
+        '$.data.result.url',
+        '$.data.result.download_url',
+        '$.data.result.content_url',
+        '$.data.result.file_url',
+        '$.data.result[0]',
+        '$.data.result[0].url',
+        '$.data.result[0].video_url',
+        '$.data.result[0].output_url',
+        '$.data.result[0].download_url',
+        '$.data.result.video.url',
+        '$.data.result.video.video_url',
+        '$.data.task.output_url',
+        '$.data.task.video_url',
+        '$.data.task.url',
+        '$.task.output_url',
+        '$.task.video_url',
+        '$.task.url',
+        '$.videos[0].url',
+        '$.videos[0].video_url',
+        '$.videos[0].output_url',
+        '$.urls[0]',
+        '$.data.urls[0]',
+        '$.data.videos[0].url',
+        '$.data.videos[0].video_url',
+        '$.data.videos[0].output_url',
+        '$.data[0].video_url',
+        '$.data[0].url',
+        '$.data[0].output_url',
+        '$.data[0].video.url',
+    ]) || readLikelyVideoUrl(payload)
+}
+
 function extractNewApiPollError(payload: unknown): string {
     const message = readFirstStringPath(payload, [
         '$.error.message',
@@ -518,47 +705,7 @@ async function pollNewApiVideoTask(
         return { status: 'pending' }
     }
 
-    const videoUrl = readFirstStringPath(payload, [
-        '$.video_url',
-        '$.url',
-        '$.download_url',
-        '$.content_url',
-        '$.video.url',
-        '$.video.video_url',
-        '$.content.url',
-        '$.content.video_url',
-        '$.data.video_url',
-        '$.data.url',
-        '$.data.download_url',
-        '$.data.content_url',
-        '$.data.video.url',
-        '$.data.video.video_url',
-        '$.data.content.url',
-        '$.data.content.video_url',
-        '$.output.video_url',
-        '$.output.url',
-        '$.output.video.url',
-        '$.output.video.video_url',
-        '$.result.video_url',
-        '$.result.url',
-        '$.result.video.url',
-        '$.result.video.video_url',
-        '$.data.output.video_url',
-        '$.data.output.url',
-        '$.data.output.video.url',
-        '$.data.output.video.video_url',
-        '$.data.result.video_url',
-        '$.data.result.url',
-        '$.data.result.video.url',
-        '$.data.result.video.video_url',
-        '$.videos[0].url',
-        '$.videos[0].video_url',
-        '$.data.videos[0].url',
-        '$.data.videos[0].video_url',
-        '$.data[0].video_url',
-        '$.data[0].url',
-        '$.data[0].video.url',
-    ])
+    const videoUrl = readNewApiVideoUrl(payload)
     if (!videoUrl) {
         return {
             status: 'failed',

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, type CompositionEvent, type ReactNode } from 'react'
-import { RatioSelector, StylePresetSelector, StyleSelector } from '@/components/selectors/RatioStyleSelectors'
+import { DurationSelector, RatioSelector, StylePresetSelector, StyleSelector } from '@/components/selectors/RatioStyleSelectors'
 import { resolveTextareaTargetHeight } from '@/lib/ui/textarea-height'
 
 interface StoryInputComposerOption {
@@ -34,6 +34,8 @@ interface StoryInputComposerProps {
   artStyle: string
   onArtStyleChange: (value: string) => void
   styleOptions: StoryInputComposerOption[]
+  targetDurationSeconds?: number | null
+  onTargetDurationChange?: (value: number | null) => void
   stylePresetValue: string
   onStylePresetChange: (value: string) => void
   stylePresetOptions: readonly StoryInputComposerStylePresetOption[]
@@ -60,6 +62,8 @@ export default function StoryInputComposer({
   artStyle,
   onArtStyleChange,
   styleOptions,
+  targetDurationSeconds = null,
+  onTargetDurationChange,
   stylePresetValue,
   onStylePresetChange,
   stylePresetOptions,
@@ -144,6 +148,12 @@ export default function StoryInputComposer({
               value={artStyle}
               onChange={onArtStyleChange}
               options={styleOptions}
+            />
+          </div>
+          <div className="w-[112px] flex-shrink-0">
+            <DurationSelector
+              value={targetDurationSeconds}
+              onChange={(nextValue) => onTargetDurationChange?.(nextValue)}
             />
           </div>
           {stylePresetOptions.length > 0 ? (

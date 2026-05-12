@@ -30,6 +30,7 @@ export interface CreateHomeProjectLaunchParams {
   storyText: string
   videoRatio: string
   artStyle: string
+  targetDurationSeconds?: number | null
   episodeName: string
 }
 
@@ -88,6 +89,7 @@ export async function createHomeProjectLaunch({
   storyText,
   videoRatio,
   artStyle,
+  targetDurationSeconds = null,
   episodeName,
 }: CreateHomeProjectLaunchParams): Promise<CreateHomeProjectLaunchResult> {
   const projectResponse = await apiFetch('/api/projects', {
@@ -107,7 +109,7 @@ export async function createHomeProjectLaunch({
   const configResponse = await apiFetch(`/api/novel-promotion/${projectId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ videoRatio, artStyle }),
+    body: JSON.stringify({ videoRatio, artStyle, targetDurationSeconds }),
   })
 
   if (!configResponse.ok) {

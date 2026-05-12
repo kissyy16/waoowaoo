@@ -4,6 +4,7 @@ import { logProjectAction } from '@/lib/logging/semantic'
 import { requireProjectAuthLight, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { isArtStyleValue } from '@/lib/constants'
+import { normalizeTargetDurationSeconds } from '@/lib/video-duration'
 import { attachMediaFieldsToProject } from '@/lib/media/attach'
 import {
   parseModelKeyStrict,
@@ -130,6 +131,18 @@ function validateArtStyleField(value: unknown): string {
     })
   }
   return artStyle
+}
+
+function validateTargetDurationSecondsField(value: unknown): number | null {
+  const normalized = normalizeTargetDurationSeconds(value)
+  if (normalized === undefined) {
+    throw new ApiError('INVALID_PARAMS', {
+      code: 'INVALID_TARGET_DURATION',
+      field: 'targetDurationSeconds',
+      message: 'targetDurationSeconds must be null or an integer between 5 and 120',
+    })
+  }
+  return normalized
 }
 
 function getNextProjectModelMap(
@@ -294,7 +307,7 @@ export const PATCH = apiHandler(async (
   const allowedProjectFields = [
     'analysisModel', 'characterModel', 'locationModel', 'storyboardModel',
     'editModel', 'videoModel', 'audioModel', 'videoRatio', 'artStyle',
-    'ttsRate', 'lipSyncEnabled', 'lipSyncMode', 'capabilityOverrides',
+    'targetDurationSeconds', 'ttsRate', 'lipSyncEnabled', 'lipSyncMode', 'capabilityOverrides',
   ] as const
 
   const updateData: Record<string, unknown> = {}
@@ -307,6 +320,11 @@ export const PATCH = apiHandler(async (
 
     if (field === 'artStyle') {
       updateData[field] = validateArtStyleField(body[field])
+      continue
+    }
+
+    if (field === 'targetDurationSeconds') {
+      updateData[field] = validateTargetDurationSecondsField(body[field])
       continue
     }
 

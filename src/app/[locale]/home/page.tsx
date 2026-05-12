@@ -52,6 +52,7 @@ export default function HomePage() {
   const [inputValue, setInputValue] = useState('')
   const [videoRatio, setVideoRatio] = useState(DEFAULT_HOME_VIDEO_RATIO)
   const [artStyle, setArtStyle] = useState('american-comic')
+  const [targetDurationSeconds, setTargetDurationSeconds] = useState<number | null>(null)
   const [stylePresetValue, setStylePresetValue] = useState<string>(DEFAULT_STYLE_PRESET_VALUE)
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
@@ -107,6 +108,7 @@ export default function HomePage() {
         storyText,
         videoRatio,
         artStyle,
+        targetDurationSeconds,
         episodeName: `${tc('episode')} 1`,
       })
 
@@ -127,6 +129,7 @@ export default function HomePage() {
       const result = await expandHomeStory({
         apiFetch,
         prompt,
+        targetDurationSeconds,
       })
 
       setInputValue(result.expandedText)
@@ -266,6 +269,8 @@ export default function HomePage() {
               artStyle={artStyle}
               onArtStyleChange={setArtStyle}
               styleOptions={styleOptions}
+              targetDurationSeconds={targetDurationSeconds}
+              onTargetDurationChange={setTargetDurationSeconds}
               stylePresetValue={stylePresetValue}
               onStylePresetChange={setStylePresetValue}
               stylePresetOptions={STYLE_PRESETS}

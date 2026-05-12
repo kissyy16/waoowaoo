@@ -6,15 +6,30 @@ import type { TaskJobData } from '@/lib/task/types'
 import { reportTaskProgress } from '@/lib/workers/shared'
 import { assertTaskActive } from '@/lib/workers/utils'
 import { createWorkerLLMStreamCallbacks, createWorkerLLMStreamContext } from './llm-stream'
+import { isValidTargetDurationSeconds } from '@/lib/video-duration'
 
 function readText(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+function readTargetDurationSeconds(value: unknown): number | null {
+  if (typeof value !== 'number' || !isValidTargetDurationSeconds(value)) return null
+  return value
+}
+
+function appendDurationGuidance(prompt: string, targetDurationSeconds: number | null): string {
+  if (targetDurationSeconds === null) return prompt
+  return `${prompt}
+
+【视频时长约束】
+用户目标成片总时长为 ${targetDurationSeconds} 秒。请将故事密度、情节转折和文字长度控制为适合 ${targetDurationSeconds} 秒短视频的创意文本；不要按 1-2 分钟短片扩写。`
 }
 
 export async function handleAiStoryExpandTask(job: Job<TaskJobData>) {
   const payload = (job.data.payload || {}) as Record<string, unknown>
   const promptInput = readText(payload.prompt).trim()
   const analysisModel = readText(payload.analysisModel).trim()
+  const targetDurationSeconds = readTargetDurationSeconds(payload.targetDurationSeconds)
 
   if (!promptInput) {
     throw new Error('prompt is required')
@@ -23,13 +38,13 @@ export async function handleAiStoryExpandTask(job: Job<TaskJobData>) {
     throw new Error('analysisModel is required')
   }
 
-  const prompt = buildPrompt({
+  const prompt = appendDurationGuidance(buildPrompt({
     promptId: PROMPT_IDS.NP_AI_STORY_EXPAND,
     locale: job.data.locale,
     variables: {
       input: promptInput,
     },
-  })
+  }), targetDurationSeconds)
 
   await reportTaskProgress(job, 25, {
     stage: 'ai_story_expand_prepare',

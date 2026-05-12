@@ -44,8 +44,10 @@ interface NovelInputStageProps {
   // 配置项 - 比例与风格
   videoRatio?: string
   artStyle?: string
+  targetDurationSeconds?: number | null
   onVideoRatioChange?: (value: string) => void
   onArtStyleChange?: (value: string) => void
+  onTargetDurationChange?: (value: number | null) => void
 }
 
 export default function NovelInputStage({
@@ -60,8 +62,10 @@ export default function NovelInputStage({
   onEnableNarrationChange,
   videoRatio = '9:16',
   artStyle = 'american-comic',
+  targetDurationSeconds = null,
   onVideoRatioChange,
-  onArtStyleChange
+  onArtStyleChange,
+  onTargetDurationChange,
 }: NovelInputStageProps) {
   const t = useTranslations('novelPromotion')
   const homeT = useTranslations('home')
@@ -114,6 +118,7 @@ export default function NovelInputStage({
       const result = await expandHomeStory({
         apiFetch,
         prompt,
+        targetDurationSeconds,
       })
 
       setLocalText(result.expandedText)
@@ -125,7 +130,7 @@ export default function NovelInputStage({
     } finally {
       setAiWriteLoading(false)
     }
-  }, [aiWriteLoading, onNovelTextChange])
+  }, [aiWriteLoading, onNovelTextChange, targetDurationSeconds])
 
   // 下拉中使用的简短标签（低信息密度）
   const ratioUsageTagMap: Record<string, string> = {
@@ -195,6 +200,8 @@ export default function NovelInputStage({
             ...option,
             recommended: option.value === 'realistic'
           }))}
+          targetDurationSeconds={targetDurationSeconds}
+          onTargetDurationChange={(value) => onTargetDurationChange?.(value)}
           stylePresetValue={stylePresetValue}
           onStylePresetChange={setStylePresetValue}
           stylePresetOptions={STYLE_PRESETS}

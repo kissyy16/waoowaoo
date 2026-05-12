@@ -14,6 +14,7 @@ interface UseWorkspaceStageRuntimeParams {
   isStartingStoryToScript: boolean
   isStartingScriptToStoryboard: boolean
   videoRatio: string | undefined
+  targetDurationSeconds: number | null | undefined
   artStyle: string | undefined
   videoModel: string | undefined
   capabilityOverrides: CapabilitySelections
@@ -64,6 +65,7 @@ export function useWorkspaceStageRuntime({
   isStartingStoryToScript,
   isStartingScriptToStoryboard,
   videoRatio,
+  targetDurationSeconds,
   artStyle,
   videoModel,
   capabilityOverrides,
@@ -94,12 +96,14 @@ export function useWorkspaceStageRuntime({
     isStartingStoryToScript,
     isStartingScriptToStoryboard,
     videoRatio,
+    targetDurationSeconds,
     artStyle,
     videoModel,
     capabilityOverrides,
     userVideoModels: resolvedUserVideoModels,
     onNovelTextChange: (value) => handleUpdateEpisode('novelText', value),
     onVideoRatioChange: (value) => handleUpdateConfig('videoRatio', value),
+    onTargetDurationChange: (value) => handleUpdateConfig('targetDurationSeconds', value),
     onArtStyleChange: (value) => handleUpdateConfig('artStyle', value),
     onRunStoryToScript: () => runWithRebuildConfirm('storyToScript', runStoryToScriptFlow),
     onClipUpdate: (clipId, data) => {
@@ -138,6 +142,7 @@ export function useWorkspaceStageRuntime({
     runWithRebuildConfirm,
     resolvedUserVideoModels,
     capabilityOverrides,
+    targetDurationSeconds,
     videoModel,
     videoRatio,
   ])

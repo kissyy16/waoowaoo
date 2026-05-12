@@ -10,6 +10,10 @@ import {
 } from '@/components/ui/primitives'
 import type { UiPatternMode } from './types'
 import { AppIcon } from '@/components/ui/icons'
+import {
+  PANEL_DURATION_MAX_SECONDS,
+  PANEL_DURATION_MIN_SECONDS,
+} from '@/lib/video-duration'
 
 export interface PanelEditFormV2Props {
   panelData: PanelEditData
@@ -20,9 +24,23 @@ export interface PanelEditFormV2Props {
   onUpdate: (updates: Partial<PanelEditData>) => void
   onOpenCharacterPicker: () => void
   onOpenLocationPicker: () => void
+  onOpenPropPicker?: () => void
   onRemoveCharacter: (index: number) => void
   onRemoveLocation: () => void
+  onRemoveProp?: (index: number) => void
   uiMode?: UiPatternMode
+}
+
+function parseDurationInput(value: string): number | null {
+  if (value.trim() === '') return null
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return null
+  return Math.round(parsed)
+}
+
+function clampDurationInput(value: number | null): number | null {
+  if (value === null) return null
+  return Math.min(PANEL_DURATION_MAX_SECONDS, Math.max(PANEL_DURATION_MIN_SECONDS, Math.round(value)))
 }
 
 export default function PanelEditFormV2({
@@ -34,11 +52,14 @@ export default function PanelEditFormV2({
   onUpdate,
   onOpenCharacterPicker,
   onOpenLocationPicker,
+  onOpenPropPicker = () => {},
   onRemoveCharacter,
   onRemoveLocation,
+  onRemoveProp = () => {},
   uiMode = 'flow'
 }: PanelEditFormV2Props) {
   const t = useTranslations('storyboard')
+  const panelProps = panelData.props ?? []
 
   return (
     <div className={`ui-pattern-form ui-pattern-form-${uiMode} space-y-2`}>
@@ -64,7 +85,7 @@ export default function PanelEditFormV2({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <GlassField label={t('panel.shotTypeLabel')}>
           <GlassInput
             density="compact"
@@ -81,6 +102,26 @@ export default function PanelEditFormV2({
             onChange={(event) => onUpdate({ cameraMove: event.target.value || null })}
             placeholder={t('panel.cameraMovePlaceholder')}
           />
+        </GlassField>
+
+        <GlassField label={t('panel.durationLabel')} hint={t('panel.durationHint')}>
+          <div className="relative">
+            <GlassInput
+              density="compact"
+              type="number"
+              min={PANEL_DURATION_MIN_SECONDS}
+              max={PANEL_DURATION_MAX_SECONDS}
+              step={1}
+              value={panelData.duration ?? ''}
+              onChange={(event) => onUpdate({ duration: parseDurationInput(event.target.value) })}
+              onBlur={() => onUpdate({ duration: clampDurationInput(panelData.duration) })}
+              placeholder={t('panel.durationPlaceholder')}
+              className="pr-7"
+            />
+            <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[var(--glass-text-tertiary)]">
+              s
+            </span>
+          </div>
         </GlassField>
       </div>
 
@@ -112,7 +153,7 @@ export default function PanelEditFormV2({
         />
       </GlassField>
 
-      <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 xl:grid-cols-3">
         <GlassField
           label={t('panel.locationLabel')}
           actions={
@@ -160,6 +201,33 @@ export default function PanelEditFormV2({
             </div>
           ) : (
             <p className="text-xs text-[var(--glass-text-tertiary)]">{t('panel.charactersNotEdited')}</p>
+          )}
+        </GlassField>
+
+        <GlassField
+          label={t('panel.propLabelWithCount', { count: panelProps.length })}
+          actions={
+            <button
+              type="button"
+              onClick={onOpenPropPicker}
+              className="inline-flex h-8 w-8 items-center justify-center text-[var(--glass-text-secondary)] hover:text-[var(--glass-tone-info-fg)] transition-colors"
+              aria-label={t('panel.editProp')}
+              title={t('panel.editProp')}
+            >
+              <AppIcon name="edit" className="h-4 w-4" />
+            </button>
+          }
+        >
+          {panelProps.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {panelProps.map((prop, index) => (
+                <GlassChip key={`${prop}-${index}`} tone="neutral" onRemove={() => onRemoveProp(index)}>
+                  {prop}
+                </GlassChip>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--glass-text-tertiary)]">{t('panel.propsNotEdited')}</p>
           )}
         </GlassField>
       </div>

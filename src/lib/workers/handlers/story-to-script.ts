@@ -34,6 +34,8 @@ import { resolveAnalysisModel } from './resolve-analysis-model'
 import { createArtifact, listArtifacts } from '@/lib/run-runtime/service'
 import { assertWorkflowRunActive, withWorkflowRunLease } from '@/lib/run-runtime/workflow-lease'
 import { parseScreenplayPayload } from './screenplay-convert-helpers'
+import { buildStoryToScriptDurationGuidance } from '@/lib/novel-promotion/duration-planning'
+import { isValidTargetDurationSeconds } from '@/lib/video-duration'
 
 function readAssetKind(value: Record<string, unknown>): string {
   return typeof value.assetKind === 'string' ? value.assetKind : 'location'
@@ -41,6 +43,10 @@ function readAssetKind(value: Record<string, unknown>): string {
 
 function isReasoningEffort(value: unknown): value is 'minimal' | 'low' | 'medium' | 'high' {
   return value === 'minimal' || value === 'low' || value === 'medium' || value === 'high'
+}
+
+function readTargetDurationSeconds(value: unknown): number | null {
+  return typeof value === 'number' && isValidTargetDurationSeconds(value) ? value : null
 }
 
 function resolveRetryClipId(retryStepKey: string): string | null {
@@ -96,6 +102,8 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
   if (!novelData) {
     throw new Error('Novel promotion data not found')
   }
+  const targetDurationSeconds = readTargetDurationSeconds(payload.targetDurationSeconds)
+    ?? readTargetDurationSeconds((novelData as unknown as { targetDurationSeconds?: unknown }).targetDurationSeconds)
 
   const episode = await prisma.novelPromotionEpisode.findUnique({
     where: { id: episodeId },
@@ -284,13 +292,14 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
           throw new Error(`retry clip content is empty: ${retryClipId}`)
         }
 
-        const screenplayPrompt = screenplayPromptTemplate
+        const durationGuidance = buildStoryToScriptDurationGuidance(targetDurationSeconds)
+        const screenplayPrompt = `${screenplayPromptTemplate
           .replace('{clip_content}', clipContent)
           .replace('{locations_lib_name}', asString(splitPayload.locationsLibName) || '无')
           .replace('{characters_lib_name}', asString(splitPayload.charactersLibName) || '无')
           .replace('{props_lib_name}', asString(splitPayload.propsLibName) || '无')
           .replace('{characters_introduction}', asString(splitPayload.charactersIntroduction) || '暂无角色介绍')
-          .replace('{clip_id}', retryClipId)
+          .replace('{clip_id}', retryClipId)}${durationGuidance}`
 
         const stepMeta: StoryToScriptStepMeta = {
           stepId: retryStepKey,
@@ -410,6 +419,7 @@ export async function handleStoryToScriptTask(job: Job<TaskJobData>) {
             async () => await runStoryToScriptOrchestrator({
               concurrency: workflowConcurrency.analysis,
               content,
+              targetDurationSeconds,
               baseCharacters: (novelData.characters || []).map((item) => item.name),
               baseLocations: (novelData.locations || [])
                 .filter((item) => readAssetKind(item as unknown as Record<string, unknown>) !== 'prop')

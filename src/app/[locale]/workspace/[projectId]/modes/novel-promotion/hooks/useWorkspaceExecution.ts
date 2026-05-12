@@ -14,6 +14,7 @@ interface UseWorkspaceExecutionParams {
   currentStage: string
   analysisModel?: string | null
   novelText: string
+  targetDurationSeconds?: number | null
   t: (key: string) => string
   onRefresh: (options?: { scope?: string; mode?: string }) => Promise<void>
   onUpdateConfig: (key: string, value: unknown) => Promise<void>
@@ -63,6 +64,7 @@ export function useWorkspaceExecution({
   currentStage,
   analysisModel,
   novelText,
+  targetDurationSeconds,
   t,
   onRefresh,
   onUpdateConfig,
@@ -200,6 +202,7 @@ export function useWorkspaceExecution({
         model: analysisModel || undefined,
         temperature: 0.7,
         reasoning: true,
+        targetDurationSeconds,
       })
       if (runResult.status !== 'completed') {
         throw new Error(runResult.errorMessage || t('execution.storyToScriptFailed'))
@@ -219,7 +222,7 @@ export function useWorkspaceExecution({
       setIsTransitioning(false)
       setTransitionProgress({ message: '', step: '' })
     }
-  }, [analysisModel, episodeId, finalizeStoryToScriptSuccess, novelText, onUpdateConfig, storyToScriptStream, t])
+  }, [analysisModel, episodeId, finalizeStoryToScriptSuccess, novelText, onUpdateConfig, storyToScriptStream, t, targetDurationSeconds])
 
   const runScriptToStoryboardFlow = useCallback(async () => {
     if (!episodeId) {
@@ -236,6 +239,7 @@ export function useWorkspaceExecution({
         model: analysisModel || undefined,
         temperature: 0.7,
         reasoning: true,
+        targetDurationSeconds,
       })
       if (runResult.status !== 'completed') {
         throw new Error(runResult.errorMessage || t('execution.scriptToStoryboardFailed'))
@@ -252,7 +256,7 @@ export function useWorkspaceExecution({
       setIsConfirmingAssets(false)
       setTransitionProgress({ message: '', step: '' })
     }
-  }, [analysisModel, episodeId, finalizeScriptToStoryboardSuccess, scriptToStoryboardStream, t])
+  }, [analysisModel, episodeId, finalizeScriptToStoryboardSuccess, scriptToStoryboardStream, t, targetDurationSeconds])
 
   useEffect(() => {
     const active = (

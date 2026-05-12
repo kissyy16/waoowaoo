@@ -21,6 +21,7 @@ export interface StoryboardPanel {
   camera_move: string | null
   description: string
   characters: { name: string; appearance: string; slot?: string }[]
+  props: string[]
   location?: string
   srt_range?: string
   duration?: number
@@ -104,6 +105,25 @@ export function useStoryboardState({
     return []
   }
 
+  const parsePanelProps = (value: string | null): string[] => {
+    if (!value) return []
+    try {
+      const parsed = JSON.parse(value)
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((item): item is string => typeof item === 'string')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      }
+    } catch {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+    }
+    return []
+  }
+
   const getTextPanels = (storyboard: NovelPromotionStoryboard): StoryboardPanel[] => {
     const panels = getStoryboardPanels(storyboard)
     const sortedPanels = [...panels].sort((a: NovelPromotionPanel, b: NovelPromotionPanel) =>
@@ -129,6 +149,7 @@ export function useStoryboardState({
           }]
         })
         : []
+      const props = parsePanelProps(p.props)
       return {
         id: p.id,
         panelIndex: p.panelIndex,
@@ -138,6 +159,7 @@ export function useStoryboardState({
         description: p.description ?? '',
         location: p.location || undefined,
         characters,
+        props,
         srt_range: p.srtStart && p.srtEnd ? `${p.srtStart}-${p.srtEnd}` : undefined,
         duration: p.duration ?? undefined,
         video_prompt: p.videoPrompt || undefined,
@@ -164,6 +186,7 @@ export function useStoryboardState({
       description: panel.description,
       location: panel.location || null,
       characters: panel.characters || [],
+      props: panel.props || [],
       srtStart: null,
       srtEnd: null,
       duration: panel.duration || null,

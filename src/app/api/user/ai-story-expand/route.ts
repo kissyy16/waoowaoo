@@ -5,6 +5,7 @@ import { apiHandler, ApiError } from '@/lib/api-errors'
 import { getUserModelConfig } from '@/lib/config-service'
 import { maybeSubmitLLMTask } from '@/lib/llm-observe/route-task'
 import { TASK_TYPE } from '@/lib/task/types'
+import { normalizeTargetDurationSeconds } from '@/lib/video-duration'
 
 export const POST = apiHandler(async (request: NextRequest) => {
   const authResult = await requireUserAuth()
@@ -16,6 +17,11 @@ export const POST = apiHandler(async (request: NextRequest) => {
   if (!prompt) {
     throw new ApiError('INVALID_PARAMS')
   }
+  const hasTargetDuration = Object.prototype.hasOwnProperty.call(body, 'targetDurationSeconds')
+  const targetDurationSeconds = normalizeTargetDurationSeconds(body.targetDurationSeconds)
+  if (hasTargetDuration && targetDurationSeconds === undefined) {
+    throw new ApiError('INVALID_PARAMS')
+  }
 
   const userConfig = await getUserModelConfig(session.user.id)
   if (!userConfig.analysisModel) {
@@ -23,7 +29,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
   }
 
   const dedupeDigest = createHash('sha1')
-    .update(`${session.user.id}:home-story-expand:${prompt}`)
+    .update(`${session.user.id}:home-story-expand:${targetDurationSeconds ?? 'auto'}:${prompt}`)
     .digest('hex')
     .slice(0, 16)
 
@@ -38,6 +44,7 @@ export const POST = apiHandler(async (request: NextRequest) => {
     body: {
       prompt,
       analysisModel: userConfig.analysisModel,
+      ...(typeof targetDurationSeconds === 'number' ? { targetDurationSeconds } : {}),
     },
     dedupeKey: `home_ai_story_expand:${dedupeDigest}`,
     priority: 1,

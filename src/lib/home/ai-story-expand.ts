@@ -11,6 +11,7 @@ interface ExpandHomeStoryPayload {
 export interface ExpandHomeStoryParams {
   apiFetch: ApiFetchLike
   prompt: string
+  targetDurationSeconds?: number | null
 }
 
 export interface ExpandHomeStoryResult {
@@ -20,12 +21,14 @@ export interface ExpandHomeStoryResult {
 export async function expandHomeStory({
   apiFetch,
   prompt,
+  targetDurationSeconds,
 }: ExpandHomeStoryParams): Promise<ExpandHomeStoryResult> {
   const response = await apiFetch('/api/user/ai-story-expand', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       prompt,
+      ...(typeof targetDurationSeconds === 'number' ? { targetDurationSeconds } : {}),
     }),
   })
 

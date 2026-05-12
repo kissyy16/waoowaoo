@@ -12,6 +12,7 @@ export type StoryToScriptRunParams = {
   temperature?: number
   reasoning?: boolean
   reasoningEffort?: 'minimal' | 'low' | 'medium' | 'high'
+  targetDurationSeconds?: number | null
 }
 
 export type StoryToScriptRunResult = RunResult
@@ -84,6 +85,7 @@ export function useStoryToScriptRunStream({ projectId, episodeId }: UseStoryToSc
       temperature: params.temperature,
       reasoning: params.reasoning,
       reasoningEffort: params.reasoningEffort,
+      ...(typeof params.targetDurationSeconds === 'number' ? { targetDurationSeconds: params.targetDurationSeconds } : {}),
       async: true,
       displayMode: 'detail',
     }),

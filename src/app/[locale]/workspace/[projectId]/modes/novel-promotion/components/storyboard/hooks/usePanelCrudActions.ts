@@ -89,6 +89,7 @@ export function usePanelCrudActions({
           description: snapshot.description,
           location: snapshot.location,
           characters: JSON.stringify(snapshot.characters),
+          props: JSON.stringify(snapshot.props ?? []),
           srtStart: snapshot.srtStart,
           srtEnd: snapshot.srtEnd,
           duration: snapshot.duration,
@@ -128,6 +129,7 @@ export function usePanelCrudActions({
         description: snapshot.description,
         location: snapshot.location,
         characters: JSON.stringify(snapshot.characters),
+        props: JSON.stringify(snapshot.props ?? []),
         srtStart: snapshot.srtStart,
         srtEnd: snapshot.srtEnd,
         duration: snapshot.duration,
@@ -206,6 +208,7 @@ export function usePanelCrudActions({
         description: t('panel.newPanelDescription'),
         videoPrompt: '',
         characters: '[]',
+        props: '[]',
       })
       await onRefresh()
     } catch (error: unknown) {
@@ -327,6 +330,37 @@ export function usePanelCrudActions({
     debouncedSave(panel.id, storyboardId)
   }, [debouncedSave])
 
+  const addPropToPanel = useCallback((
+    panel: StoryboardPanel,
+    propName: string,
+    storyboardId: string,
+    getPanelEditData: (panel: StoryboardPanel) => PanelEditData,
+    updatePanelEdit: (panelId: string, panel: StoryboardPanel, updates: Partial<PanelEditData>) => void,
+  ) => {
+    const currentData = getPanelEditData(panel)
+    const currentProps = currentData.props ?? []
+    if (currentProps.some((item) => item === propName)) return
+    updatePanelEdit(panel.id, panel, {
+      props: [...currentProps, propName],
+    })
+    debouncedSave(panel.id, storyboardId)
+  }, [debouncedSave])
+
+  const removePropFromPanel = useCallback((
+    panel: StoryboardPanel,
+    index: number,
+    storyboardId: string,
+    getPanelEditData: (panel: StoryboardPanel) => PanelEditData,
+    updatePanelEdit: (panelId: string, panel: StoryboardPanel, updates: Partial<PanelEditData>) => void,
+  ) => {
+    const currentData = getPanelEditData(panel)
+    const currentProps = currentData.props ?? []
+    updatePanelEdit(panel.id, panel, {
+      props: currentProps.filter((_, itemIndex) => itemIndex !== index),
+    })
+    debouncedSave(panel.id, storyboardId)
+  }, [debouncedSave])
+
   return {
     savingPanels,
     deletingPanelIds,
@@ -341,5 +375,7 @@ export function usePanelCrudActions({
     addCharacterToPanel,
     removeCharacterFromPanel,
     setPanelLocation,
+    addPropToPanel,
+    removePropFromPanel,
   }
 }

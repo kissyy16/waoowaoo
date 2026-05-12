@@ -36,6 +36,8 @@ import {
   parseStoryboardRetryTarget,
   runScriptToStoryboardAtomicRetry,
 } from './script-to-storyboard-atomic-retry'
+import { allocateClipDurations } from '@/lib/novel-promotion/duration-planning'
+import { isValidTargetDurationSeconds } from '@/lib/video-duration'
 
 type AnyObj = Record<string, unknown>
 const MAX_VOICE_ANALYZE_ATTEMPTS = 2
@@ -55,6 +57,10 @@ function readNullableText(value: Record<string, unknown>, key: string): string |
 
 function isReasoningEffort(value: unknown): value is 'minimal' | 'low' | 'medium' | 'high' {
   return value === 'minimal' || value === 'low' || value === 'medium' || value === 'high'
+}
+
+function readTargetDurationSeconds(value: unknown): number | null {
+  return typeof value === 'number' && isValidTargetDurationSeconds(value) ? value : null
 }
 
 export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
@@ -125,6 +131,14 @@ export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
     throw new Error(`Retry clip not found: ${retryClipId}`)
   }
   const skipVoiceAnalyze = !!retryStepKey && retryStepKey !== 'voice_analyze'
+  const targetDurationSeconds = readTargetDurationSeconds(payload.targetDurationSeconds)
+    ?? readTargetDurationSeconds((novelData as unknown as { targetDurationSeconds?: unknown }).targetDurationSeconds)
+  const clipDurationTargetsById = targetDurationSeconds
+    ? Object.fromEntries(allocateClipDurations(
+      clips.map((clip) => ({ id: clip.id, content: clip.content })),
+      targetDurationSeconds,
+    ).entries())
+    : undefined
 
   const model = await resolveAnalysisModel({
     userId: job.data.userId,
@@ -288,6 +302,8 @@ export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
                   },
                   clipIndex,
                   totalClipCount: clips.length,
+                  totalTargetDurationSeconds: targetDurationSeconds,
+                  clipTargetDurationSeconds: clipDurationTargetsById?.[clip.id] ?? null,
                   novelPromotionData: {
                     characters: novelData.characters || [],
                     locations: (novelData.locations || []).filter((item) => readAssetKind(item as unknown as Record<string, unknown>) !== 'prop'),
@@ -329,6 +345,8 @@ export async function handleScriptToStoryboardTask(job: Job<TaskJobData>) {
                     props: readNullableText(clip as unknown as Record<string, unknown>, 'props'),
                     screenplay: clip.screenplay,
                   })),
+                  targetDurationSeconds,
+                  clipDurationTargetsById,
                   novelPromotionData: {
                     characters: novelData.characters || [],
                     locations: (novelData.locations || []).filter((item) => readAssetKind(item as unknown as Record<string, unknown>) !== 'prop'),

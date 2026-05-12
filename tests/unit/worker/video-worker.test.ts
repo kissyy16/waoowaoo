@@ -196,6 +196,37 @@ describe('worker video processor behavior', () => {
     )
   })
 
+  it('VIDEO_PANEL: 使用分镜时长覆盖生成参数中的 duration', async () => {
+    const processor = workerState.processor
+    expect(processor).toBeTruthy()
+
+    prismaMock.novelPromotionPanel.findUnique.mockResolvedValueOnce(buildPanel({ duration: 12 }))
+
+    const job = buildJob({
+      type: TASK_TYPE.VIDEO_PANEL,
+      payload: {
+        videoModel: 'ark::doubao-seedance-2-0-260128',
+        usePanelDuration: true,
+        generationOptions: {
+          duration: 5,
+          resolution: '720p',
+        },
+      },
+    })
+
+    await processor!(job)
+
+    expect(utilsMock.resolveVideoSourceFromGeneration).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        options: expect.objectContaining({
+          duration: 12,
+          resolution: '720p',
+        }),
+      }),
+    )
+  })
+
   it('VIDEO_PANEL: 将 Ark 返回的实际视频 token 用量透传到任务结果', async () => {
     const processor = workerState.processor
     expect(processor).toBeTruthy()

@@ -10,6 +10,11 @@ import { GlassButton } from '@/components/ui/primitives'
 interface StoryboardToolbarProps {
   totalSegments: number
   totalPanels: number
+  targetDurationSeconds: number | null
+  durationSummary: {
+    totalDurationSeconds: number
+    panelCountWithDuration: number
+  }
   isDownloadingImages: boolean
   runningCount: number
   pendingPanelCount: number
@@ -25,6 +30,8 @@ interface StoryboardToolbarProps {
 export default function StoryboardToolbar({
   totalSegments,
   totalPanels,
+  targetDurationSeconds,
+  durationSummary,
   isDownloadingImages,
   runningCount,
   pendingPanelCount,
@@ -42,6 +49,8 @@ export default function StoryboardToolbar({
       <StoryboardHeader
         totalSegments={totalSegments}
         totalPanels={totalPanels}
+        targetDurationSeconds={targetDurationSeconds}
+        durationSummary={durationSummary}
         isDownloadingImages={isDownloadingImages}
         runningCount={runningCount}
         pendingPanelCount={pendingPanelCount}

@@ -100,8 +100,30 @@ export function useStoryboardStageController({
     addCharacterToPanel,
     removeCharacterFromPanel,
     setPanelLocation,
+    addPropToPanel,
+    removePropFromPanel,
     insertPanel,
   } = panelOps
+
+  const durationSummary = useMemo(() => {
+    let totalDurationSeconds = 0
+    let panelCountWithDuration = 0
+
+    for (const storyboard of sortedStoryboards) {
+      for (const panel of getTextPanels(storyboard)) {
+        const duration = getPanelEditData(panel).duration
+        if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
+          totalDurationSeconds += duration
+          panelCountWithDuration += 1
+        }
+      }
+    }
+
+    return {
+      totalDurationSeconds,
+      panelCountWithDuration,
+    }
+  }, [getPanelEditData, getTextPanels, sortedStoryboards])
 
   const variantOps = usePanelVariant({
     projectId,
@@ -157,8 +179,10 @@ export function useStoryboardStageController({
     handlePanelUpdate,
     handleAddCharacter,
     handleSetLocation,
+    handleAddProp,
     handleRemoveCharacter,
     handleRemoveLocation,
+    handleRemoveProp,
     runningCount,
     pendingPanelCount,
     handleGenerateAllPanels,
@@ -181,6 +205,8 @@ export function useStoryboardStageController({
     addCharacterToPanel,
     removeCharacterFromPanel,
     setPanelLocation,
+    addPropToPanel,
+    removePropFromPanel,
     assetPickerPanel,
     setAssetPickerPanel,
   })
@@ -193,6 +219,7 @@ export function useStoryboardStageController({
   return {
     localStoryboards, setLocalStoryboards, sortedStoryboards, expandedClips, toggleExpandedClip,
     getClipInfo, getTextPanels, getPanelEditData, updatePanelEdit, formatClipTitle, totalPanels, storyboardStartIndex,
+    durationSummary,
     savingPanels, deletingPanelIds, saveStateByPanel, hasUnsavedByPanel, submittingStoryboardTextIds, addingStoryboardGroup, movingClipId, insertingAfterPanelId,
     savePanelWithData, addPanel, deletePanel, deleteStoryboard, regenerateStoryboardText, addStoryboardGroup, moveStoryboardGroup, insertPanel,
     submittingVariantPanelId, generatePanelVariant,
@@ -201,7 +228,7 @@ export function useStoryboardStageController({
     regeneratePanelImage, regenerateAllPanelsIndividually, selectPanelCandidate, selectPanelCandidateIndex,
     cancelPanelCandidate, getPanelCandidates, modifyPanelImage, downloadAllImages, clearStoryboardError,
     assetPickerPanel, setAssetPickerPanel, aiDataPanel, setAIDataPanel, isEpisodeBatchSubmitting,
-    getDefaultAssetsForClip, handleEditSubmit, handlePanelUpdate, handleAddCharacter, handleSetLocation, handleRemoveCharacter, handleRemoveLocation,
+    getDefaultAssetsForClip, handleEditSubmit, handlePanelUpdate, handleAddCharacter, handleSetLocation, handleAddProp, handleRemoveCharacter, handleRemoveLocation, handleRemoveProp,
     retrySave,
     updatePhotographyPlanMutation, updatePanelActingNotesMutation,
     addingStoryboardGroupState, transitioningState, runningCount, pendingPanelCount, handleGenerateAllPanels,

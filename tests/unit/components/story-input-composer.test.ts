@@ -10,6 +10,7 @@ vi.mock('@/components/selectors/RatioStyleSelectors', () => ({
     ...props
   }: Record<string, unknown> & { getUsage?: unknown }) => createElement('div', props, 'RatioSelector'),
   StyleSelector: (props: Record<string, unknown>) => createElement('div', props, 'StyleSelector'),
+  DurationSelector: (props: Record<string, unknown>) => createElement('div', props, 'DurationSelector'),
   StylePresetSelector: (props: Record<string, unknown>) => createElement('div', props, 'StylePresetSelector'),
 }))
 
@@ -29,6 +30,8 @@ describe('StoryInputComposer', () => {
         artStyle: 'realistic',
         onArtStyleChange: () => undefined,
         styleOptions: [{ value: 'realistic', label: '真人风格' }],
+        targetDurationSeconds: 30,
+        onTargetDurationChange: () => undefined,
         stylePresetValue: 'horror-suspense',
         onStylePresetChange: () => undefined,
         stylePresetOptions: [{ value: 'horror-suspense', label: '恐怖悬疑', description: '压迫氛围' }],
@@ -42,6 +45,7 @@ describe('StoryInputComposer', () => {
     expect(html).toContain('rows="8"')
     expect(html).toContain('RatioSelector')
     expect(html).toContain('StyleSelector')
+    expect(html).toContain('DurationSelector')
     expect(html).toContain('StylePresetSelector')
     expect(html).toContain('字数：4')
     expect(html).toContain('当前配置')
@@ -73,6 +77,7 @@ describe('StoryInputComposer', () => {
 
     expect(html).toContain('RatioSelector')
     expect(html).toContain('StyleSelector')
+    expect(html).toContain('DurationSelector')
     expect(html).not.toContain('StylePresetSelector')
   })
 })

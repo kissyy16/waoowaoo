@@ -18,6 +18,7 @@ import { normalizeToBase64ForGeneration } from '@/lib/media/outbound-image'
 import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/model-capabilities/lookup'
 import { parseModelKeyStrict } from '@/lib/model-config-contract'
 import { getProviderConfig } from '@/lib/api-config'
+import { PANEL_DURATION_MAX_SECONDS, PANEL_DURATION_MIN_SECONDS } from '@/lib/video-duration'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -44,6 +45,13 @@ function extractGenerationOptions(payload: AnyObj): VideoOptionMap {
     }
   }
   return next
+}
+
+function readPanelDurationSeconds(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  const seconds = Math.round(value)
+  if (seconds < PANEL_DURATION_MIN_SECONDS || seconds > PANEL_DURATION_MAX_SECONDS) return null
+  return seconds
 }
 
 async function fetchPanelByStoryboardIndex(storyboardId: string, panelIndex: number) {
@@ -190,6 +198,12 @@ async function handleVideoPanelTask(job: Job<TaskJobData>) {
   const panel = await getPanelForVideoTask(job)
 
   const generationOptions = extractGenerationOptions(payload)
+  if (payload.usePanelDuration === true) {
+    const panelDurationSeconds = readPanelDurationSeconds(panel.duration)
+    if (panelDurationSeconds !== null) {
+      generationOptions.duration = panelDurationSeconds
+    }
+  }
 
   await reportTaskProgress(job, 10, {
     stage: 'generate_panel_video',

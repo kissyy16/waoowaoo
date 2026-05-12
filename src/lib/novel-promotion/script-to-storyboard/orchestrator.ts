@@ -24,6 +24,11 @@ import {
   DEFAULT_ANALYSIS_WORKFLOW_CONCURRENCY,
   normalizeWorkflowConcurrencyValue,
 } from '@/lib/workflow-concurrency'
+import {
+  allocateClipDurations,
+  buildClipStoryboardDurationGuidance,
+  normalizePanelDurations,
+} from '@/lib/novel-promotion/duration-planning'
 
 type JsonRecord = Record<string, unknown>
 const orchestratorLogger = createScopedLogger({ module: 'worker.orchestrator.script_to_storyboard' })
@@ -72,6 +77,8 @@ export type ScriptToStoryboardOrchestratorInput = {
   concurrency?: number
   locale?: 'zh' | 'en'
   clips: ClipInput[]
+  targetDurationSeconds?: number | null
+  clipDurationTargetsById?: Record<string, number>
   novelPromotionData: {
     characters: CharacterAsset[]
     locations: LocationAsset[]
@@ -298,6 +305,10 @@ export async function runScriptToStoryboardOrchestrator(
   const charactersLibName = (novelPromotionData.characters || []).map((c) => c.name).join(', ') || '无'
   const locationsLibName = (novelPromotionData.locations || []).map((l) => l.name).join(', ') || '无'
   const charactersIntroduction = buildCharactersIntroduction(novelPromotionData.characters || [])
+  const clipDurationTargetsById = input.clipDurationTargetsById
+    ?? (typeof input.targetDurationSeconds === 'number'
+      ? Object.fromEntries(allocateClipDurations(clips, input.targetDurationSeconds).entries())
+      : {})
 
   const phase1PanelsByClipId = new Map<string, StoryboardPanel[]>()
   const phase2CinematographyByClipId = new Map<string, PhotographyRule[]>()
@@ -313,6 +324,11 @@ export async function runScriptToStoryboardOrchestrator(
       if (!clipContent) {
         throw new Error(`Clip ${formatClipId(clip)} content is empty`)
       }
+      const clipTargetDurationSeconds = clipDurationTargetsById[clip.id] ?? null
+      const durationGuidance = buildClipStoryboardDurationGuidance({
+        totalTargetDurationSeconds: input.targetDurationSeconds,
+        clipTargetDurationSeconds,
+      })
       const clipCharacters = parseClipCharacters(clip.characters)
       const clipLocation = clip.location || null
       const clipProps = parseClipProps(clip.props ?? null)
@@ -358,6 +374,7 @@ export async function runScriptToStoryboardOrchestrator(
       } else {
         phase1Prompt = phase1Prompt.replace('{clip_content}', clipContent)
       }
+      phase1Prompt = `${phase1Prompt}${durationGuidance}`
 
       const phase1Meta = withStepMeta(
         `clip_${clip.id}_phase1`,
@@ -434,11 +451,11 @@ export async function runScriptToStoryboardOrchestrator(
         .replace(/\{panel_count\}/g, String(planPanels.length))
         .replace('{characters_info}', filteredFullDescription)
 
-      const phase3Prompt = promptTemplates.phase3DetailTemplate
+      const phase3Prompt = `${promptTemplates.phase3DetailTemplate
         .replace('{panels_json}', JSON.stringify(planPanels, null, 2))
         .replace('{characters_age_gender}', filteredFullDescription)
         .replace('{locations_description}', filteredLocationsDescription)
-        .replace('{props_description}', filteredPropsDescription)
+        .replace('{props_description}', filteredPropsDescription)}${durationGuidance}`
 
       const [
         { parsed: photographyRules },
@@ -463,7 +480,9 @@ export async function runScriptToStoryboardOrchestrator(
           if (filtered.length === 0) {
             throw new Error(`Phase 3 returned empty valid panels for clip ${formatClipId(clip)}`)
           }
-          return filtered
+          return typeof clipTargetDurationSeconds === 'number'
+            ? normalizePanelDurations(filtered, clipTargetDurationSeconds)
+            : filtered
         },
       )
 

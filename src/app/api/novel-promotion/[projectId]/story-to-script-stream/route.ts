@@ -3,6 +3,7 @@ import { requireProjectAuth, isErrorResponse } from '@/lib/api-auth'
 import { apiHandler, ApiError } from '@/lib/api-errors'
 import { TASK_TYPE } from '@/lib/task/types'
 import { maybeSubmitLLMTask } from '@/lib/llm-observe/route-task'
+import { normalizeTargetDurationSeconds } from '@/lib/video-duration'
 
 export const runtime = 'nodejs'
 
@@ -21,12 +22,26 @@ export const POST = apiHandler(async (
   if (!content) {
     throw new ApiError('INVALID_PARAMS')
   }
+  const hasTargetDuration = Object.prototype.hasOwnProperty.call(body, 'targetDurationSeconds')
+  const targetDurationSeconds = normalizeTargetDurationSeconds(body?.targetDurationSeconds)
+  if (hasTargetDuration && targetDurationSeconds === undefined) {
+    throw new ApiError('INVALID_PARAMS')
+  }
 
   const authResult = await requireProjectAuth(projectId, {
     include: { characters: true, locations: true },
   })
   if (isErrorResponse(authResult)) return authResult
   const { session } = authResult
+  const taskBody: Record<string, unknown> = {
+    ...body,
+    displayMode: 'detail',
+  }
+  if (typeof targetDurationSeconds === 'number') {
+    taskBody.targetDurationSeconds = targetDurationSeconds
+  } else {
+    delete taskBody.targetDurationSeconds
+  }
 
   const asyncTaskResponse = await maybeSubmitLLMTask({
     request,
@@ -37,10 +52,7 @@ export const POST = apiHandler(async (
     targetType: 'NovelPromotionEpisode',
     targetId: episodeId,
     routePath: `/api/novel-promotion/${projectId}/story-to-script-stream`,
-    body: {
-      ...body,
-      displayMode: 'detail',
-    },
+    body: taskBody,
     dedupeKey: `story_to_script_run:${episodeId}`,
     priority: 2,
   })

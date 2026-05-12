@@ -8,6 +8,11 @@ import { resolveTaskPresentationState } from '@/lib/task/presentation'
 interface StoryboardHeaderProps {
   totalSegments: number
   totalPanels: number
+  targetDurationSeconds: number | null
+  durationSummary: {
+    totalDurationSeconds: number
+    panelCountWithDuration: number
+  }
   isDownloadingImages: boolean
   runningCount: number
   pendingPanelCount: number
@@ -20,6 +25,8 @@ interface StoryboardHeaderProps {
 export default function StoryboardHeader({
   totalSegments,
   totalPanels,
+  targetDurationSeconds,
+  durationSummary,
   isDownloadingImages,
   runningCount,
   pendingPanelCount,
@@ -29,6 +36,21 @@ export default function StoryboardHeader({
   onBack
 }: StoryboardHeaderProps) {
   const t = useTranslations('storyboard')
+  const currentDuration = durationSummary.totalDurationSeconds
+  const hasIncompleteDurations = totalPanels > 0 && durationSummary.panelCountWithDuration < totalPanels
+  const durationMatchesTarget =
+    targetDurationSeconds === null
+    || (!hasIncompleteDurations && Math.abs(currentDuration - targetDurationSeconds) < 0.01)
+  const durationChipTone = targetDurationSeconds === null
+    ? 'neutral'
+    : durationMatchesTarget
+      ? 'success'
+      : 'warning'
+  const durationChipText = targetDurationSeconds === null
+    ? t('header.durationAuto', { current: currentDuration })
+    : durationMatchesTarget
+      ? t('header.durationTargetMatched', { current: currentDuration, target: targetDurationSeconds })
+      : t('header.durationTargetMismatch', { current: currentDuration, target: targetDurationSeconds })
   const storyboardTaskRunningState = runningCount > 0
     ? resolveTaskPresentationState({
       phase: 'processing',
@@ -50,6 +72,9 @@ export default function StoryboardHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <GlassChip tone={durationChipTone}>
+            {durationChipText}
+          </GlassChip>
           {runningCount > 0 ? (
             <GlassChip tone="info" icon={<span className="h-2 w-2 animate-pulse rounded-full bg-current" />}>
               <span className="inline-flex items-center gap-1.5">
