@@ -28,7 +28,7 @@ export default function Home() {
         <div className="flex flex-col items-center gap-4">
           <Image
             src="/logo.png?v=rainbow-xl"
-            alt="waoowaoo"
+            alt="Dhst"
             width={88}
             height={88}
             className="h-[88px] w-[88px] animate-pulse object-contain"
