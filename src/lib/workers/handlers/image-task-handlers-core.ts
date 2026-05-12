@@ -311,7 +311,7 @@ export async function handleModifyAssetImageTask(job: Job<TaskJobData>) {
     const projectData = await resolveNovelData(job.data.projectId)
     if (!projectData.videoRatio) throw new Error('Project videoRatio not configured')
     const aspectRatio = projectData.videoRatio
-    const requiredReference = await normalizeToBase64ForGeneration(currentUrl)
+    const requiredReference = await normalizeToBase64ForGeneration(currentUrl, { compressImages: true })
     const extraReferenceInputs: string[] = []
 
     const selectedAssets = Array.isArray(payload.selectedAssets)

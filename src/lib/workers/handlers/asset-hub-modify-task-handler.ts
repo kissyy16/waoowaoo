@@ -11,6 +11,7 @@ import {
 } from '../utils'
 import {
   normalizeReferenceImagesForGeneration,
+  normalizeToBase64ForGeneration,
 } from '@/lib/media/outbound-image'
 import {
   type LocationAvailableSlot,
@@ -123,8 +124,9 @@ export async function handleAssetHubModifyTask(job: Job<TaskJobData>) {
         }
       }
     }
+    const requiredReference = await normalizeToBase64ForGeneration(currentUrl, { compressImages: true })
     const normalizedExtras = await normalizeReferenceImagesForGeneration(extraReferenceInputs)
-    const referenceImages = Array.from(new Set([currentUrl, ...normalizedExtras]))
+    const referenceImages = Array.from(new Set([requiredReference, ...normalizedExtras]))
     const currentDescription = readIndexedDescription({
       descriptions: appearance.descriptions,
       fallbackDescription: appearance.description,
@@ -213,8 +215,9 @@ export async function handleAssetHubModifyTask(job: Job<TaskJobData>) {
         }
       }
     }
+    const requiredReference = await normalizeToBase64ForGeneration(currentUrl, { compressImages: true })
     const normalizedExtras = await normalizeReferenceImagesForGeneration(extraReferenceInputs)
-    const referenceImages = Array.from(new Set([currentUrl, ...normalizedExtras]))
+    const referenceImages = Array.from(new Set([requiredReference, ...normalizedExtras]))
 
     const isProp = payload.type === 'prop'
     const prompt = isProp

@@ -57,6 +57,17 @@ export type OutboundImageNormalizationIssue = {
   message: string
 }
 
+export type GenerationImageCompressionOptions = {
+  maxEdge?: number
+  targetBytes?: number
+  quality?: number
+  minQuality?: number
+}
+
+export type NormalizeToBase64ForGenerationOptions = {
+  compressImages?: boolean | GenerationImageCompressionOptions
+}
+
 const logger = createScopedLogger({
   module: 'media.outbound-image',
 })
@@ -66,6 +77,10 @@ const MAX_NEXT_IMAGE_UNWRAP_DEPTH = 6
 const SIGNED_URL_TTL_SECONDS = 3600
 const STORAGE_KEY_PREFIXES = ['images/', 'video/', 'voice/'] as const
 const DEFAULT_CONTENT_TYPE = 'application/octet-stream'
+const DEFAULT_REFERENCE_IMAGE_MAX_EDGE = 1536
+const DEFAULT_REFERENCE_IMAGE_TARGET_BYTES = 2 * 1024 * 1024
+const DEFAULT_REFERENCE_IMAGE_QUALITY = 85
+const DEFAULT_REFERENCE_IMAGE_MIN_QUALITY = 65
 
 const MIME_BY_EXT: Record<string, string> = {
   '.png': 'image/png',
@@ -110,6 +125,66 @@ function normalizeInput(input: string): string {
 
 function isDataUrl(value: string): boolean {
   return value.startsWith('data:')
+}
+
+function parseDataUrl(value: string): { mimeType: string; base64: string } | null {
+  const marker = ';base64,'
+  const markerIndex = value.indexOf(marker)
+  if (!value.startsWith('data:') || markerIndex === -1) return null
+  const mimeType = value.slice(5, markerIndex).split(';')[0]?.trim().toLowerCase() || ''
+  const base64 = value.slice(markerIndex + marker.length)
+  if (!mimeType || !base64) return null
+  return { mimeType, base64 }
+}
+
+function isCompressibleImageMime(mimeType: string): boolean {
+  return (
+    mimeType === 'image/png'
+    || mimeType === 'image/jpeg'
+    || mimeType === 'image/jpg'
+    || mimeType === 'image/webp'
+  )
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  const parsed = typeof value === 'number'
+    ? value
+    : typeof value === 'string'
+      ? Number.parseInt(value, 10)
+      : Number.NaN
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+function resolveCompressionOptions(
+  options?: GenerationImageCompressionOptions,
+): Required<GenerationImageCompressionOptions> {
+  const maxEdge = normalizePositiveInteger(
+    options?.maxEdge ?? process.env.GENERATION_REFERENCE_IMAGE_MAX_EDGE,
+    DEFAULT_REFERENCE_IMAGE_MAX_EDGE,
+  )
+  const targetBytes = normalizePositiveInteger(
+    options?.targetBytes ?? process.env.GENERATION_REFERENCE_IMAGE_TARGET_BYTES,
+    DEFAULT_REFERENCE_IMAGE_TARGET_BYTES,
+  )
+  const quality = normalizePositiveInteger(options?.quality, DEFAULT_REFERENCE_IMAGE_QUALITY)
+  const minQuality = normalizePositiveInteger(options?.minQuality, DEFAULT_REFERENCE_IMAGE_MIN_QUALITY)
+
+  return {
+    maxEdge,
+    targetBytes,
+    quality: Math.max(1, Math.min(100, quality)),
+    minQuality: Math.max(1, Math.min(100, Math.min(minQuality, quality))),
+  }
+}
+
+function readNormalizeCompressionOptions(
+  options?: NormalizeToBase64ForGenerationOptions,
+): GenerationImageCompressionOptions | null {
+  if (options?.compressImages === true) return {}
+  if (options?.compressImages && typeof options.compressImages === 'object') {
+    return options.compressImages
+  }
+  return null
 }
 
 function isHttpUrl(value: string): boolean {
@@ -278,6 +353,100 @@ function guessContentType(input: string, contentTypeHeader: string | null, buffe
   return MIME_BY_EXT[ext] || DEFAULT_CONTENT_TYPE
 }
 
+export async function compressImageDataUrlForGeneration(
+  dataUrl: string,
+  options?: GenerationImageCompressionOptions,
+): Promise<string> {
+  const parsed = parseDataUrl(dataUrl)
+  if (!parsed || !isCompressibleImageMime(parsed.mimeType)) return dataUrl
+
+  let inputBuffer: Buffer
+  try {
+    inputBuffer = Buffer.from(parsed.base64, 'base64')
+  } catch {
+    return dataUrl
+  }
+  if (inputBuffer.length === 0) return dataUrl
+
+  const resolved = resolveCompressionOptions(options)
+  const sharp = (await import('sharp')).default
+
+  let metadata: import('sharp').Metadata
+  try {
+    metadata = await sharp(inputBuffer, { animated: false }).metadata()
+  } catch {
+    return dataUrl
+  }
+
+  const width = metadata.width || 0
+  const height = metadata.height || 0
+  if (width <= 0 || height <= 0) return dataUrl
+
+  const shouldResize = Math.max(width, height) > resolved.maxEdge
+  if (!shouldResize && inputBuffer.length <= resolved.targetBytes) {
+    return dataUrl
+  }
+
+  const qualities: number[] = []
+  for (let quality = resolved.quality; quality >= resolved.minQuality; quality -= 10) {
+    qualities.push(quality)
+  }
+  if (!qualities.includes(resolved.minQuality)) qualities.push(resolved.minQuality)
+
+  let bestBuffer: Buffer | null = null
+  let bestQuality = qualities[0] || resolved.quality
+  for (const quality of qualities) {
+    let pipeline = sharp(inputBuffer, { animated: false }).rotate()
+    if (shouldResize) {
+      pipeline = pipeline.resize({
+        width: resolved.maxEdge,
+        height: resolved.maxEdge,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
+    }
+    pipeline = pipeline.flatten({ background: { r: 255, g: 255, b: 255 } })
+
+    const outputBuffer = await pipeline
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer()
+
+    bestBuffer = outputBuffer
+    bestQuality = quality
+    if (outputBuffer.length <= resolved.targetBytes) break
+  }
+
+  if (!bestBuffer) return dataUrl
+  if (bestBuffer.length >= inputBuffer.length && inputBuffer.length <= resolved.targetBytes) {
+    return dataUrl
+  }
+
+  let outputMetadata: import('sharp').Metadata | null = null
+  try {
+    outputMetadata = await sharp(bestBuffer).metadata()
+  } catch {
+    outputMetadata = null
+  }
+
+  logger.info({
+    message: 'reference image compressed for generation',
+    details: {
+      originalBytes: inputBuffer.length,
+      outputBytes: bestBuffer.length,
+      originalWidth: width,
+      originalHeight: height,
+      outputWidth: outputMetadata?.width ?? null,
+      outputHeight: outputMetadata?.height ?? null,
+      outputMimeType: 'image/jpeg',
+      quality: bestQuality,
+      maxEdge: resolved.maxEdge,
+      targetBytes: resolved.targetBytes,
+    },
+  })
+
+  return `data:image/jpeg;base64,${bestBuffer.toString('base64')}`
+}
+
 async function signStorageKey(storageKey: string): Promise<string> {
   const { getSignedUrl, toFetchableUrl } = await getStorageHelpers()
   return toFetchableUrl(getSignedUrl(storageKey, SIGNED_URL_TTL_SECONDS))
@@ -386,10 +555,16 @@ export async function normalizeToOriginalMediaUrl(input: string): Promise<string
   })
 }
 
-export async function normalizeToBase64ForGeneration(input: string): Promise<string> {
+export async function normalizeToBase64ForGeneration(
+  input: string,
+  options?: NormalizeToBase64ForGenerationOptions,
+): Promise<string> {
   const normalizedUrl = await normalizeToOriginalMediaUrl(input)
   if (isDataUrl(normalizedUrl)) {
-    return normalizedUrl
+    const compressionOptions = readNormalizeCompressionOptions(options)
+    return compressionOptions
+      ? await compressImageDataUrlForGeneration(normalizedUrl, compressionOptions)
+      : normalizedUrl
   }
 
   const fetchUrl = await toFetchableAbsoluteUrl(normalizedUrl)
@@ -416,7 +591,11 @@ export async function normalizeToBase64ForGeneration(input: string): Promise<str
 
   const buffer = Buffer.from(await response.arrayBuffer())
   const mimeType = guessContentType(normalizedUrl, response.headers.get('content-type'), buffer)
-  return `data:${mimeType};base64,${buffer.toString('base64')}`
+  const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`
+  const compressionOptions = readNormalizeCompressionOptions(options)
+  return compressionOptions
+    ? await compressImageDataUrlForGeneration(dataUrl, compressionOptions)
+    : dataUrl
 }
 
 function toNormalizationIssue(
@@ -462,7 +641,7 @@ export async function normalizeReferenceImagesForGeneration(
     candidateCount += 1
 
     try {
-      normalized.push(await normalizeToBase64ForGeneration(trimmed))
+      normalized.push(await normalizeToBase64ForGeneration(trimmed, { compressImages: true }))
     } catch (error) {
       const issue = toNormalizationIssue(error, trimmed, index)
       options.onIssue?.(issue)

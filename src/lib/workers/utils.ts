@@ -8,6 +8,7 @@ import { pollAsyncTask } from '@/lib/async-poll'
 import { getSignedUrl, toFetchableUrl } from '@/lib/storage'
 import { initializeFonts, createLabelSVG } from '@/lib/fonts'
 import { processMediaResult } from '@/lib/media-process'
+import { compressImageDataUrlForGeneration } from '@/lib/media/outbound-image'
 import {
   getProjectModelConfig,
   getUserModelConfig,
@@ -631,7 +632,7 @@ export async function stripLabelBar(imageSource: string): Promise<string> {
     .jpeg({ quality: 95, mozjpeg: true })
     .toBuffer()
 
-  return `data:image/jpeg;base64,${cropped.toString('base64')}`
+  return await compressImageDataUrlForGeneration(`data:image/jpeg;base64,${cropped.toString('base64')}`)
 }
 
 export async function withLabelBar(imageSource: string, labelText: string): Promise<Buffer> {

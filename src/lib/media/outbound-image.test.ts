@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import sharp from 'sharp'
 import {
   OutboundImageNormalizeError,
+  compressImageDataUrlForGeneration,
   normalizeReferenceImagesForGeneration,
   normalizeToBase64ForGeneration,
   normalizeToOriginalMediaUrl,
@@ -149,6 +151,27 @@ describe('outbound-image normalization', () => {
     ])
     expect(normalized).toHaveLength(1)
     expect(normalized[0]).toBe('data:image/png;base64,BwgJ')
+  })
+
+  it('compresses oversized image data urls for generation', async () => {
+    const inputBuffer = await sharp({
+      create: {
+        width: 128,
+        height: 64,
+        channels: 4,
+        background: { r: 30, g: 80, b: 140, alpha: 1 },
+      },
+    }).png().toBuffer()
+
+    const compressed = await compressImageDataUrlForGeneration(
+      `data:image/png;base64,${inputBuffer.toString('base64')}`,
+      { maxEdge: 32, targetBytes: 64, quality: 80, minQuality: 70 },
+    )
+    const outputBuffer = Buffer.from(compressed.split(',')[1] || '', 'base64')
+    const metadata = await sharp(outputBuffer).metadata()
+
+    expect(compressed).toMatch(/^data:image\/jpeg;base64,/)
+    expect(Math.max(metadata.width || 0, metadata.height || 0)).toBeLessThanOrEqual(32)
   })
 
   it('reports structured issue and fails explicitly when all references fail', async () => {

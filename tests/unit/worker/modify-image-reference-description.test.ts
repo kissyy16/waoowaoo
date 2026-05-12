@@ -208,9 +208,13 @@ describe('modify image syncs descriptions after edit', () => {
       expect.anything(),
       expect.objectContaining({
         options: expect.objectContaining({
-          referenceImages: ['https://signed/current-image.png', 'https://ref.example/b.png'],
+          referenceImages: ['base64-reference', 'https://ref.example/b.png'],
         }),
       }),
+    )
+    expect(outboundImageMock.normalizeToBase64ForGeneration).toHaveBeenCalledWith(
+      'https://signed/current-image.png',
+      { compressImages: true },
     )
 
     const globalCharacterUpdateCall = prismaMock.globalCharacterAppearance.update.mock.calls.at(-1) as [unknown] | undefined
@@ -264,9 +268,13 @@ describe('modify image syncs descriptions after edit', () => {
       expect.anything(),
       expect.objectContaining({
         options: expect.objectContaining({
-          referenceImages: ['https://signed/current-image.png', 'https://ref.example/location.png'],
+          referenceImages: ['base64-reference', 'https://ref.example/location.png'],
         }),
       }),
+    )
+    expect(outboundImageMock.normalizeToBase64ForGeneration).toHaveBeenCalledWith(
+      'https://signed/current-image.png',
+      { compressImages: true },
     )
 
     const globalLocationUpdateCall = prismaMock.globalLocationImage.update.mock.calls.at(-1) as [unknown] | undefined
