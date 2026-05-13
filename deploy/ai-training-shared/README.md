@@ -24,14 +24,14 @@ node deploy/ai-training-shared/package-local.mjs
 - `docker build --progress=plain --build-arg NODE_IMAGE=... --build-arg NPM_REGISTRY=... -t waoowaoo-local:latest .`
 - `docker save -o image/waoowaoo-image-latest.tar waoowaoo-local:latest`
 
-为了解决 `node:20-alpine` 拉取失败和 `npm ci` 依赖下载失败，脚本会先依次拉取这些基础镜像：
+为了解决基础镜像拉取失败和 `npm ci` 依赖下载失败，脚本会先依次拉取这些基础镜像。应用镜像必须使用 Debian slim，Remotion Chrome Headless Shell 不支持 Alpine/musl：
 
-- `node:20-alpine`
-- `docker.m.daocloud.io/library/node:20-alpine`
-- `docker.1ms.run/library/node:20-alpine`
-- `docker.1panel.live/library/node:20-alpine`
-- `dockerpull.com/library/node:20-alpine`
-- `public.ecr.aws/docker/library/node:20-alpine`
+- `node:20-bookworm-slim`
+- `docker.m.daocloud.io/library/node:20-bookworm-slim`
+- `docker.1ms.run/library/node:20-bookworm-slim`
+- `docker.1panel.live/library/node:20-bookworm-slim`
+- `dockerpull.com/library/node:20-bookworm-slim`
+- `public.ecr.aws/docker/library/node:20-bookworm-slim`
 
 基础镜像拉取成功后，脚本会使用以下 npm 源依次构建；构建日志使用 `--progress=plain`，可以直接看到 `npm ci` 的完整错误：
 

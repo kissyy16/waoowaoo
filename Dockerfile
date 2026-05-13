@@ -1,5 +1,5 @@
 # ==================== Stage 1: Dependencies ====================
-ARG NODE_IMAGE=node:20-alpine
+ARG NODE_IMAGE=node:20-bookworm-slim
 ARG NPM_REGISTRY=https://registry.npmmirror.com
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
@@ -35,8 +35,26 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install tini for proper signal handling
-RUN apk add --no-cache tini
+# Remotion Chrome Headless Shell 不支持 Alpine/musl；生产镜像使用 Debian 并安装运行期共享库。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      tini \
+      procps \
+      libnss3 \
+      libdbus-1-3 \
+      libatk1.0-0 \
+      libgbm-dev \
+      libasound2 \
+      libxrandr2 \
+      libxkbcommon-dev \
+      libxfixes3 \
+      libxcomposite1 \
+      libxdamage1 \
+      libpango-1.0-0 \
+      libcairo2 \
+      libcups2 \
+      libatk-bridge2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 # node_modules（含 devDeps，因为 npm run start 需要 concurrently + tsx）
 COPY --from=builder /app/node_modules ./node_modules
@@ -69,5 +87,5 @@ RUN mkdir -p /app/logs && touch /app/.env
 
 EXPOSE 3000 3010
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["npm", "run", "start"]

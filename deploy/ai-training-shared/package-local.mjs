@@ -19,12 +19,12 @@ function unique(values) {
 
 const nodeImageCandidates = unique([
   process.env.WAOO_NODE_IMAGE,
-  'node:20-alpine',
-  'docker.m.daocloud.io/library/node:20-alpine',
-  'docker.1ms.run/library/node:20-alpine',
-  'docker.1panel.live/library/node:20-alpine',
-  'dockerpull.com/library/node:20-alpine',
-  'public.ecr.aws/docker/library/node:20-alpine',
+  'node:20-bookworm-slim',
+  'docker.m.daocloud.io/library/node:20-bookworm-slim',
+  'docker.1ms.run/library/node:20-bookworm-slim',
+  'docker.1panel.live/library/node:20-bookworm-slim',
+  'dockerpull.com/library/node:20-bookworm-slim',
+  'public.ecr.aws/docker/library/node:20-bookworm-slim',
 ])
 const npmRegistryCandidates = unique([
   process.env.WAOO_NPM_REGISTRY,
