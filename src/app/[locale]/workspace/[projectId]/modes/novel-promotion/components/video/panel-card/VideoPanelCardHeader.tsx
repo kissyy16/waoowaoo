@@ -56,9 +56,9 @@ export default function VideoPanelCardHeader({ runtime }: VideoPanelCardHeaderPr
             containerClassName="w-full h-full bg-black"
             className="w-full h-full object-contain bg-black"
           />
-          <div className="absolute inset-0 flex items-center justify-center bg-[var(--glass-overlay)] group-hover:bg-[var(--glass-overlay)] transition-colors pointer-events-none">
-            <div className="w-16 h-16 bg-[var(--glass-bg-surface-strong)] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-              <AppIcon name="play" className="w-8 h-8 text-white" />
+          <div className="absolute inset-0 flex items-center justify-center bg-[rgba(10,16,30,0.28)] group-hover:bg-[rgba(10,16,30,0.38)] transition-colors pointer-events-none">
+            <div className="relative w-[72px] h-[72px] rounded-full flex items-center justify-center border border-white/35 bg-[rgba(10,16,30,0.72)] shadow-[0_18px_42px_rgba(10,16,30,0.36),inset_0_1px_0_rgba(255,255,255,0.24)] backdrop-blur-md transition-all duration-200 group-hover:scale-105 group-hover:border-white/60 group-hover:bg-[rgba(47,123,255,0.86)] group-active:scale-95">
+              <AppIcon name="play" className="relative z-10 ml-1 w-8 h-8 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.38)]" />
             </div>
           </div>
         </div>
