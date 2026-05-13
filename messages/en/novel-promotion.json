@@ -4,8 +4,10 @@
     "script": "Script",
     "storyboard": "Storyboard",
     "video": "Video",
-    "editor": "AI Editor",
-    "editorComingSoon": "Coming soon, follow us for updates"
+    "compose": "Compose",
+    "composeNeedsVideos": "Complete video generation first",
+    "editor": "Compose",
+    "editorComingSoon": "Use the compose stage"
   },
   "buttons": {
     "assetLibrary": "Asset Library",

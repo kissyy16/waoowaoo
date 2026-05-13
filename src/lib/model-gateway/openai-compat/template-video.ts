@@ -40,6 +40,47 @@ function resolveModelRef(request: OpenAICompatVideoRequest): string {
   throw new Error('OPENAI_COMPAT_VIDEO_MODEL_REF_REQUIRED')
 }
 
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function parseAspectRatio(value: unknown): { widthRatio: number; heightRatio: number } | undefined {
+  const raw = readString(value)
+  if (!raw) return undefined
+  const match = raw.match(/^(\d+(?:\.\d+)?):(\d+(?:\.\d+)?)$/)
+  if (!match) return undefined
+  const widthRatio = Number(match[1])
+  const heightRatio = Number(match[2])
+  if (!Number.isFinite(widthRatio) || !Number.isFinite(heightRatio) || widthRatio <= 0 || heightRatio <= 0) {
+    return undefined
+  }
+  return { widthRatio, heightRatio }
+}
+
+function resolveTemplateVideoSize(options: Record<string, unknown> | undefined): string | undefined {
+  if (!options) return undefined
+  const explicitSize = readString(options.size)
+  if (explicitSize) return explicitSize
+
+  const resolution = readString(options.resolution)
+  if (!resolution) return undefined
+  if (/^\d{2,5}x\d{2,5}$/i.test(resolution)) return resolution
+
+  const shortSideMatch = resolution.toLowerCase().match(/^(\d{3,4})p$/)
+  if (!shortSideMatch) return undefined
+
+  const ratio = parseAspectRatio(options.aspectRatio || options.aspect_ratio)
+  if (!ratio) return undefined
+
+  const shortSide = Number(shortSideMatch[1])
+  if (!Number.isFinite(shortSide) || shortSide <= 0) return undefined
+
+  if (ratio.widthRatio >= ratio.heightRatio) {
+    return `${Math.round(shortSide * (ratio.widthRatio / ratio.heightRatio))}x${shortSide}`
+  }
+  return `${shortSide}x${Math.round(shortSide * (ratio.heightRatio / ratio.widthRatio))}`
+}
+
 export async function generateVideoViaOpenAICompatTemplate(
   request: OpenAICompatVideoRequest,
 ): Promise<GenerateResult> {
@@ -58,7 +99,7 @@ export async function generateVideoViaOpenAICompatTemplate(
     images: [request.imageUrl],
     aspectRatio: typeof request.options?.aspectRatio === 'string' ? request.options.aspectRatio : undefined,
     resolution: typeof request.options?.resolution === 'string' ? request.options.resolution : undefined,
-    size: typeof request.options?.size === 'string' ? request.options.size : undefined,
+    size: resolveTemplateVideoSize(request.options),
     duration: typeof request.options?.duration === 'number' ? request.options.duration : undefined,
     extra: request.options,
   })

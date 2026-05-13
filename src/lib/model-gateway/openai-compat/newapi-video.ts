@@ -180,7 +180,10 @@ export async function generateVideoViaNewApiCompat(
   const dimensions = resolveDimensions(options)
   const metadata = buildMetadata(options)
 
-  if (duration !== undefined) body.duration = duration
+  if (duration !== undefined) {
+    body.duration = duration
+    body.seconds = String(duration)
+  }
   if (fps !== undefined) body.fps = fps
   if (seed !== undefined) body.seed = seed
   if (dimensions) {

@@ -19,6 +19,8 @@ import { resolveBuiltinCapabilitiesByModelKey } from '@/lib/model-capabilities/l
 import { parseModelKeyStrict } from '@/lib/model-config-contract'
 import { getProviderConfig } from '@/lib/api-config'
 import { PANEL_DURATION_MAX_SECONDS, PANEL_DURATION_MIN_SECONDS } from '@/lib/video-duration'
+import { renderVideoComposeProject } from '@/lib/novel-promotion/video-compose-renderer'
+import type { VideoEditorProject } from '@/features/video-editor/types/editor.types'
 
 type AnyObj = Record<string, unknown>
 type VideoOptionValue = string | number | boolean
@@ -304,12 +306,81 @@ async function handleLipSyncTask(job: Job<TaskJobData>) {
   }
 }
 
+function parseVideoEditorProject(value: string): VideoEditorProject {
+  const parsed = JSON.parse(value) as VideoEditorProject
+  if (!parsed || !Array.isArray(parsed.timeline) || !parsed.config) {
+    throw new Error('Invalid video editor project data')
+  }
+  return parsed
+}
+
+async function handleVideoComposeTask(job: Job<TaskJobData>) {
+  const payload = (job.data.payload || {}) as AnyObj
+  const editorProjectId = job.data.targetType === 'VideoEditorProject'
+    ? job.data.targetId
+    : (typeof payload.editorProjectId === 'string' ? payload.editorProjectId : '')
+  if (!editorProjectId) {
+    throw new Error('Missing editorProjectId for video compose task')
+  }
+
+  const editorProject = await prisma.videoEditorProject.findUnique({
+    where: { id: editorProjectId },
+  })
+  if (!editorProject) {
+    throw new Error('Video editor project not found')
+  }
+
+  try {
+    await prisma.videoEditorProject.update({
+      where: { id: editorProjectId },
+      data: {
+        renderStatus: 'rendering',
+        renderTaskId: job.data.taskId,
+      },
+    })
+
+    await reportTaskProgress(job, 12, { stage: 'compose_prepare' })
+    const projectData = parseVideoEditorProject(editorProject.projectData)
+    const { outputKey, sizeBytes } = await renderVideoComposeProject(projectData, async (progress) => {
+      await reportTaskProgress(job, Math.max(15, Math.min(90, progress)), { stage: 'compose_render' })
+    })
+
+    await reportTaskProgress(job, 94, { stage: 'compose_upload' })
+    await prisma.videoEditorProject.update({
+      where: { id: editorProjectId },
+      data: {
+        renderStatus: 'completed',
+        renderTaskId: null,
+        outputUrl: outputKey,
+      },
+    })
+    await reportTaskProgress(job, 98, { stage: 'compose_persist' })
+
+    return {
+      editorProjectId,
+      outputUrl: outputKey,
+      sizeBytes,
+    }
+  } catch (error) {
+    await prisma.videoEditorProject.update({
+      where: { id: editorProjectId },
+      data: {
+        renderStatus: 'failed',
+        renderTaskId: job.data.taskId,
+      },
+    }).catch(() => undefined)
+    throw error
+  }
+}
+
 async function processVideoTask(job: Job<TaskJobData>) {
   await reportTaskProgress(job, 5, { stage: 'received' })
 
   switch (job.data.type) {
     case TASK_TYPE.VIDEO_PANEL:
       return await handleVideoPanelTask(job)
+    case TASK_TYPE.VIDEO_COMPOSE:
+      return await handleVideoComposeTask(job)
     case TASK_TYPE.LIP_SYNC:
       return await handleLipSyncTask(job)
     default:

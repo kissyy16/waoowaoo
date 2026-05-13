@@ -4,8 +4,9 @@ import { installAuthMocks, mockAuthenticated, resetAuthMockState } from '../help
 import { resetSystemState } from '../helpers/db-reset'
 import { prisma } from '../helpers/prisma'
 import { seedMinimalDomainState } from './helpers/seed'
-import { expectLifecycleEvents, listTaskEventTypes, waitForTaskTerminalState } from './helpers/tasks'
+import { expectLifecycleEvents, waitForTaskEventTypes, waitForTaskTerminalState } from './helpers/tasks'
 import { startSystemWorkers, stopSystemWorkers, type SystemWorkers } from './helpers/workers'
+import { TASK_EVENT_TYPE } from '@/lib/task/types'
 
 type PollState = {
   status: 'processing' | 'completed'
@@ -115,7 +116,11 @@ describe('system - generate video', () => {
     })
     expect(panel?.videoUrl).toBe(videoState.uploadedCosKey)
 
-    const eventTypes = await listTaskEventTypes(json.taskId)
+    const eventTypes = await waitForTaskEventTypes(json.taskId, [
+      TASK_EVENT_TYPE.CREATED,
+      TASK_EVENT_TYPE.PROCESSING,
+      TASK_EVENT_TYPE.COMPLETED,
+    ])
     expectLifecycleEvents(eventTypes, 'completed')
   })
 })

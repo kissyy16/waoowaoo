@@ -34,6 +34,40 @@ function getMimeType(filePath: string): string {
     return MIME_TYPES[ext] || 'application/octet-stream'
 }
 
+function parseRangeHeader(rangeHeader: string, size: number): { start: number; end: number } | null {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim())
+    if (!match) return null
+
+    const [, startValue, endValue] = match
+    if (!startValue && !endValue) return null
+
+    if (!startValue && endValue) {
+        const suffixLength = Number.parseInt(endValue, 10)
+        if (!Number.isFinite(suffixLength) || suffixLength <= 0) return null
+        return {
+            start: Math.max(size - suffixLength, 0),
+            end: size - 1,
+        }
+    }
+
+    const start = Number.parseInt(startValue, 10)
+    const end = endValue ? Number.parseInt(endValue, 10) : size - 1
+    if (
+        !Number.isFinite(start) ||
+        !Number.isFinite(end) ||
+        start < 0 ||
+        end < start ||
+        start >= size
+    ) {
+        return null
+    }
+
+    return {
+        start,
+        end: Math.min(end, size - 1),
+    }
+}
+
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ path: string[] }> }
@@ -54,17 +88,48 @@ export async function GET(
             return NextResponse.json({ error: 'Access denied' }, { status: 403 })
         }
 
+        const stat = await fs.stat(filePath)
+        const mimeType = getMimeType(filePath)
+        const rangeHeader = request.headers.get('range')
+        const baseHeaders = {
+            'Content-Type': mimeType,
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': 'public, max-age=31536000',
+        }
+
+        if (rangeHeader) {
+            const range = parseRangeHeader(rangeHeader, stat.size)
+            if (!range) {
+                return new NextResponse(null, {
+                    status: 416,
+                    headers: {
+                        ...baseHeaders,
+                        'Content-Range': `bytes */${stat.size}`,
+                    },
+                })
+            }
+
+            const buffer = await fs.readFile(filePath)
+            const chunk = buffer.subarray(range.start, range.end + 1)
+            return new NextResponse(new Uint8Array(chunk), {
+                status: 206,
+                headers: {
+                    ...baseHeaders,
+                    'Content-Length': chunk.length.toString(),
+                    'Content-Range': `bytes ${range.start}-${range.end}/${stat.size}`,
+                },
+            })
+        }
+
         // 读取文件
         const buffer = await fs.readFile(filePath)
-        const mimeType = getMimeType(filePath)
 
         // 返回文件内容
         return new NextResponse(new Uint8Array(buffer), {
             status: 200,
             headers: {
-                'Content-Type': mimeType,
+                ...baseHeaders,
                 'Content-Length': buffer.length.toString(),
-                'Cache-Control': 'public, max-age=31536000', // 1年缓存
             },
         })
 

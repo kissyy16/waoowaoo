@@ -33,7 +33,8 @@ export function useWorkspaceStageNavigation({
       case 'storyboard':
         return stageArtifacts.hasStoryboard ? 'ready' : 'empty'
       case 'videos':
-      case 'editor':
+        return stageArtifacts.hasVideo ? 'ready' : 'empty'
+      case 'compose':
         return stageArtifacts.hasVideo ? 'ready' : 'empty'
       case 'voice':
         return stageArtifacts.hasVoice ? 'ready' : 'empty'
@@ -48,12 +49,12 @@ export function useWorkspaceStageNavigation({
     { id: 'storyboard', icon: 'B', label: t('stages.storyboard'), status: getStageStatus('storyboard') },
     { id: 'videos', icon: 'V', label: t('stages.video'), status: getStageStatus('videos') },
     {
-      id: 'editor',
-      icon: 'E',
-      label: t('stages.editor'),
-      status: 'empty',
-      disabled: true,
-      disabledLabel: t('stages.editorComingSoon'),
+      id: 'compose',
+      icon: 'C',
+      label: t('stages.compose'),
+      status: getStageStatus('compose'),
+      disabled: !stageArtifacts.hasVideo,
+      disabledLabel: t('stages.composeNeedsVideos'),
     },
   ]
 }

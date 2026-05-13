@@ -110,6 +110,21 @@ describe('outbound-image normalization', () => {
     expect(dataUrl).toBe('data:image/png;base64,iVBORw0KGgoAAAAN')
   })
 
+  it('prefers sniffed image mime over misleading upstream headers', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'image/jpeg' }),
+      arrayBuffer: async () => Uint8Array.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        0x00, 0x00, 0x00, 0x0d,
+      ]).buffer,
+    } as Response)
+
+    const dataUrl = await normalizeToBase64ForGeneration('images/direct.jpg')
+    expect(dataUrl).toBe('data:image/png;base64,iVBORw0KGgoAAAAN')
+  })
+
   it('sniffs jpeg mime when upstream returns application/octet-stream', async () => {
     fetchMock.mockResolvedValue({
       ok: true,

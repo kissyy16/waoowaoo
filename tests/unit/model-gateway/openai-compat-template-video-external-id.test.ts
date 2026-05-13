@@ -67,4 +67,69 @@ describe('openai-compat template video externalId', () => {
     expect(result.externalId).not.toContain(Buffer.from('openai-compatible:33331fb0-2806-4da6-85ff-cd2433b587d0::veo3.1-fast', 'utf8').toString('base64url'))
     expect(result.externalId!.length).toBeLessThanOrEqual(128)
   })
+
+  it('derives template size from resolution and aspect ratio', async () => {
+    const fetchMock = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => {
+      void _url
+      void _init
+      return new Response(JSON.stringify({
+        id: 'task-size',
+        status: 'pending',
+      }), { status: 200 })
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    await generateVideoViaOpenAICompatTemplate({
+      userId: 'user-1',
+      providerId: 'openai-compatible:33331fb0-2806-4da6-85ff-cd2433b587d0',
+      modelId: 'doubao-seedance-2-0-260128',
+      modelKey: 'openai-compatible:33331fb0-2806-4da6-85ff-cd2433b587d0::doubao-seedance-2-0-260128',
+      imageUrl: 'https://example.com/seed.png',
+      prompt: 'animate this image',
+      profile: 'openai-compatible',
+      options: {
+        duration: 6,
+        resolution: '720p',
+        aspectRatio: '9:16',
+      },
+      template: {
+        version: 1,
+        mediaType: 'video',
+        mode: 'async',
+        create: {
+          method: 'POST',
+          path: '/videos',
+          bodyTemplate: {
+            model: '{{model}}',
+            prompt: '{{prompt}}',
+            seconds: '{{duration}}',
+            size: '{{size}}',
+            input_reference: '{{image}}',
+          },
+        },
+        status: {
+          method: 'GET',
+          path: '/videos/{{task_id}}',
+        },
+        response: {
+          taskIdPath: '$.id',
+          statusPath: '$.status',
+        },
+        polling: {
+          intervalMs: 5000,
+          timeoutMs: 600000,
+          doneStates: ['completed'],
+          failStates: ['failed'],
+        },
+      },
+    })
+
+    const firstCall = fetchMock.mock.calls[0]
+    const body = JSON.parse(String(firstCall?.[1]?.body || '{}'))
+    expect(body).toMatchObject({
+      seconds: 6,
+      size: '720x1280',
+      input_reference: 'https://example.com/seed.png',
+    })
+  })
 })

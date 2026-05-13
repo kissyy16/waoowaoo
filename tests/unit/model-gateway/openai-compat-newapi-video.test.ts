@@ -75,6 +75,7 @@ describe('openai-compat New API video adapter', () => {
       prompt: 'animate this image',
       image: 'data:image/png;base64,QQ==',
       duration: 5,
+      seconds: '5',
       fps: 24,
       width: 1280,
       height: 720,

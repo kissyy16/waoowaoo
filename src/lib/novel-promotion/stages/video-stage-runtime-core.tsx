@@ -78,7 +78,7 @@ export function useVideoStageRuntime({
   onUpdateVideoPrompt,
   onUpdatePanelVideoModel,
   onOpenAssetLibraryForCharacter,
-  onEnterEditor,
+  onStartCompose,
 }: VideoStageShellProps) {
   const t = useTranslations('video')
 
@@ -185,6 +185,7 @@ export function useVideoStageRuntime({
   const [isBatchConfigOpen, setIsBatchConfigOpen] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
   const [isSubmittingVideoBatch, setIsSubmittingVideoBatch] = useState(false)
+  const [isStartingCompose, setIsStartingCompose] = useState(false)
   const [submittingVideoPanelKeys, setSubmittingVideoPanelKeys] = useState<Set<string>>(new Set())
   const [submittingVideoBaselines, setSubmittingVideoBaselines] = useState<Map<string, VideoSubmissionBaseline>>(new Map())
   const [batchSelectedModel, setBatchSelectedModel] = useState('')
@@ -475,6 +476,10 @@ export function useVideoStageRuntime({
   const runningCount = projectedPanels.filter((panel) => panel.videoTaskRunning || panel.lipSyncTaskRunning).length
   const failedCount = allPanels.filter((panel) => !!panel.videoErrorMessage || !!panel.lipSyncErrorMessage).length
   const isAnyTaskRunning = runningCount > 0 || isSubmittingVideoBatch
+  const completedComposePanelCount = projectedPanels.filter((panel) => !!panel.lipSyncVideoUrl || !!panel.videoUrl).length
+  const canStartCompose = projectedPanels.length > 0
+    && completedComposePanelCount === projectedPanels.length
+    && !isAnyTaskRunning
   const canSubmitBatchGenerate = !!batchSelectedModel && batchMissingCapabilityFields.length === 0
 
   const handleOpenBatchGenerateModal = useCallback(() => {
@@ -507,6 +512,16 @@ export function useVideoStageRuntime({
     isConfirming,
   ])
 
+  const handleStartCompose = useCallback(async () => {
+    if (!onStartCompose || !canStartCompose || isStartingCompose) return
+    setIsStartingCompose(true)
+    try {
+      await onStartCompose()
+    } finally {
+      setIsStartingCompose(false)
+    }
+  }, [canStartCompose, isStartingCompose, onStartCompose])
+
   return (
     <div className="space-y-6 pb-20">
       <VideoToolbar
@@ -519,8 +534,9 @@ export function useVideoStageRuntime({
         onGenerateAll={handleOpenBatchGenerateModal}
         onDownloadAll={handleDownloadAllVideos}
         onBack={onBack}
-        onEnterEditor={onEnterEditor}
-        videosReady={videosWithUrl > 0}
+        onStartCompose={onStartCompose ? handleStartCompose : undefined}
+        canStartCompose={canStartCompose}
+        isStartingCompose={isStartingCompose}
       />
 
       <VideoTimelinePanel

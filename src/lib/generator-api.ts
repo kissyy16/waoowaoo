@@ -19,7 +19,6 @@ import {
     generateVideoViaOpenAICompatTemplate,
     generateVideoViaNewApiCompat,
     isNewApiSeedanceVideoModel,
-    isOpenAISoraStyleVideoTemplate,
     resolveModelGatewayRoute,
 } from './model-gateway'
 import { generateBailianAudio, generateBailianImage, generateBailianVideo } from './providers/bailian'
@@ -242,7 +241,6 @@ export async function generateVideo(
         const shouldUseNewApiSeedanceVideo =
             providerKey === 'openai-compatible'
             && isNewApiSeedanceVideoModel(selection.modelId)
-            && (!compatTemplate || isOpenAISoraStyleVideoTemplate(compatTemplate))
 
         if (shouldUseNewApiSeedanceVideo) {
             return await generateVideoViaNewApiCompat({

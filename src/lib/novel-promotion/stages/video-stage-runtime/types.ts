@@ -61,5 +61,5 @@ export interface VideoStageShellProps {
   ) => Promise<void>
   onUpdatePanelVideoModel: (storyboardId: string, panelIndex: number, model: string) => Promise<void>
   onOpenAssetLibraryForCharacter?: (characterId?: string | null) => void
-  onEnterEditor?: () => void
+  onStartCompose?: () => void | Promise<void>
 }

@@ -22,6 +22,12 @@ const reportTaskProgressMock = vi.hoisted(() => vi.fn(async () => undefined))
 const withTaskLifecycleMock = vi.hoisted(() =>
   vi.fn(async (job: Job<TaskJobData>, handler: WorkerProcessor) => await handler(job)),
 )
+const renderVideoComposeProjectMock = vi.hoisted(() =>
+  vi.fn(async (_project: unknown, onProgress?: (progress: number) => Promise<void>) => {
+    await onProgress?.(42)
+    return { outputKey: 'cos/compose/output.mp4', sizeBytes: 1234 }
+  }),
+)
 
 const utilsMock = vi.hoisted(() => ({
   assertTaskActive: vi.fn(async () => undefined),
@@ -52,6 +58,10 @@ const prismaMock = vi.hoisted(() => ({
   },
   novelPromotionVoiceLine: {
     findUnique: vi.fn(),
+  },
+  videoEditorProject: {
+    findUnique: vi.fn(),
+    update: vi.fn(async () => undefined),
   },
 }))
 
@@ -98,6 +108,9 @@ vi.mock('@/lib/api-config', () => ({
 }))
 vi.mock('@/lib/config-service', () => configServiceMock)
 vi.mock('@/lib/workers/user-concurrency-gate', () => concurrencyGateMock)
+vi.mock('@/lib/novel-promotion/video-compose-renderer', () => ({
+  renderVideoComposeProject: renderVideoComposeProjectMock,
+}))
 
 function buildPanel(overrides?: Partial<PanelRow>): PanelRow {
   return {
@@ -144,6 +157,13 @@ describe('worker video processor behavior', () => {
       id: 'line-1',
       audioUrl: 'cos/line-1.mp3',
       audioDuration: 1200,
+    })
+    prismaMock.videoEditorProject.findUnique.mockResolvedValue({
+      id: 'editor-project-1',
+      projectData: JSON.stringify({
+        config: { fps: 30, width: 1280, height: 720 },
+        timeline: [{ id: 'clip-1', type: 'video', src: 'https://example.com/a.mp4' }],
+      }),
     })
 
     const mod = await import('@/lib/workers/video.worker')
@@ -305,6 +325,41 @@ describe('worker video processor behavior', () => {
         lipSyncVideoUrl: 'cos/lip-sync/video.mp4',
         lipSyncTaskId: null,
       },
+    })
+  })
+
+  it('VIDEO_COMPOSE: 渲染合成项目并写回输出地址', async () => {
+    const processor = workerState.processor
+    expect(processor).toBeTruthy()
+
+    const job = buildJob({
+      type: TASK_TYPE.VIDEO_COMPOSE,
+      targetType: 'VideoEditorProject',
+      targetId: 'editor-project-1',
+      payload: {},
+    })
+
+    const result = await processor!(job) as { editorProjectId: string; outputUrl: string; sizeBytes: number }
+
+    expect(renderVideoComposeProjectMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        config: expect.objectContaining({ fps: 30 }),
+        timeline: expect.any(Array),
+      }),
+      expect.any(Function),
+    )
+    expect(prismaMock.videoEditorProject.update).toHaveBeenCalledWith({
+      where: { id: 'editor-project-1' },
+      data: {
+        renderStatus: 'completed',
+        renderTaskId: null,
+        outputUrl: 'cos/compose/output.mp4',
+      },
+    })
+    expect(result).toEqual({
+      editorProjectId: 'editor-project-1',
+      outputUrl: 'cos/compose/output.mp4',
+      sizeBytes: 1234,
     })
   })
 

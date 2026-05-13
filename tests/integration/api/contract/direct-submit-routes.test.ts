@@ -153,6 +153,56 @@ const prismaMock = vi.hoisted(() => ({
     findFirst: vi.fn(async () => ({
       id: 'episode-1',
       speakerVoices: '{}',
+      novelPromotionProject: {
+        videoRatio: '16:9',
+      },
+      clips: [
+        { id: 'clip-1', createdAt: new Date('2026-01-01T00:00:00.000Z') },
+      ],
+      storyboards: [
+        {
+          id: 'storyboard-1',
+          clipId: 'clip-1',
+          createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          clip: {
+            start: 0,
+            end: 10,
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+          },
+          panels: [
+            {
+              id: 'panel-1',
+              storyboardId: 'storyboard-1',
+              panelIndex: 0,
+              description: 'panel description',
+              duration: 3,
+              videoUrl: 'base-video.mp4',
+              lipSyncVideoUrl: 'lip-video.mp4',
+            },
+          ],
+        },
+      ],
+    })),
+  },
+  videoEditorProject: {
+    findUnique: vi.fn(async () => ({ id: 'editor-project-1' })),
+    upsert: vi.fn(async ({ create, update }: { create?: Record<string, unknown>; update?: Record<string, unknown> }) => ({
+      id: 'editor-project-1',
+      episodeId: 'episode-1',
+      projectData: String(update?.projectData || create?.projectData || '{}'),
+      renderStatus: 'pending',
+      renderTaskId: null,
+      outputUrl: null,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    })),
+    update: vi.fn(async ({ data }: { data?: Record<string, unknown> }) => ({
+      id: 'editor-project-1',
+      episodeId: 'episode-1',
+      projectData: String(data?.projectData || '{}'),
+      renderStatus: data?.renderStatus || 'pending',
+      renderTaskId: data?.renderTaskId || null,
+      outputUrl: data?.outputUrl || null,
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     })),
   },
   novelPromotionVoiceLine: {
@@ -421,6 +471,17 @@ const DIRECT_CASES: ReadonlyArray<DirectRouteCase> = [
     },
   },
   {
+    routeFile: 'src/app/api/novel-promotion/[projectId]/compose/route.ts',
+    body: { episodeId: 'episode-1' },
+    params: { projectId: 'project-1' },
+    expectedTaskType: TASK_TYPE.VIDEO_COMPOSE,
+    expectedTargetType: 'VideoEditorProject',
+    expectedProjectId: 'project-1',
+    expectedPayloadSubset: {
+      editorProjectId: 'editor-project-1',
+    },
+  },
+  {
     routeFile: 'src/app/api/novel-promotion/[projectId]/insert-panel/route.ts',
     body: { storyboardId: 'storyboard-1', insertAfterPanelId: 'panel-ins' },
     params: { projectId: 'project-1' },
@@ -561,7 +622,7 @@ describe('api contract - direct submit routes (behavior)', () => {
   })
 
   it('keeps expected coverage size', () => {
-    expect(DIRECT_CASES.length).toBe(20)
+    expect(DIRECT_CASES.length).toBe(21)
   })
 
   for (const routeCase of DIRECT_CASES) {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const resolveModelSelectionMock = vi.hoisted(() =>
-  vi.fn(async () => ({
+  vi.fn<typeof import('@/lib/api-config').resolveModelSelection>(async () => ({
     provider: 'openai-compatible:oa-1',
     modelId: 'gpt-image-1',
     modelKey: 'openai-compatible:oa-1::gpt-image-1',
@@ -156,6 +156,64 @@ describe('generator-api requires compat media template for openai-compatible med
       modelId: 'doubao-seedance-2.0',
       imageUrl: 'https://example.com/a.png',
       prompt: 'animate',
+    }))
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+  })
+
+  it('routes configured Seedance video through New API for consistent regeneration', async () => {
+    const compatMediaTemplate = {
+      version: 1 as const,
+      mediaType: 'video' as const,
+      mode: 'async' as const,
+      create: {
+        method: 'POST' as const,
+        path: '/videos',
+        contentType: 'multipart/form-data' as const,
+        bodyTemplate: {
+          model: '{{model}}',
+          prompt: '{{prompt}}',
+          seconds: '{{duration}}',
+          input_reference: '{{image}}',
+        },
+        multipartFileFields: ['input_reference'],
+      },
+      status: { method: 'GET' as const, path: '/videos/{{task_id}}' },
+      response: {
+        taskIdPath: '$.id',
+        statusPath: '$.status',
+      },
+      polling: {
+        intervalMs: 3000,
+        timeoutMs: 600000,
+        doneStates: ['completed'],
+        failStates: ['failed'],
+      },
+    }
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'doubao-seedance-2.0',
+      modelKey: 'openai-compatible:oa-1::doubao-seedance-2.0',
+      mediaType: 'video',
+      compatMediaTemplate,
+    })
+
+    const result = await generateVideo(
+      'user-1',
+      'openai-compatible:oa-1::doubao-seedance-2.0',
+      'https://example.com/a.png',
+      { prompt: 'animate', duration: 6 },
+    )
+
+    expect(result.success).toBe(true)
+    expect(generateVideoViaNewApiCompatMock).toHaveBeenCalledWith(expect.objectContaining({
+      providerId: 'openai-compatible:oa-1',
+      modelId: 'doubao-seedance-2.0',
+      imageUrl: 'https://example.com/a.png',
+      prompt: 'animate',
+      options: expect.objectContaining({
+        duration: 6,
+      }),
     }))
     expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
     expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()

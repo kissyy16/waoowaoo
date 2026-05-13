@@ -32,6 +32,23 @@ export function readStringOption(value: unknown, optionName: string): string | u
   return trimmed
 }
 
+function extensionForMimeType(mimeType: string): string {
+  switch (mimeType.toLowerCase()) {
+    case 'image/jpeg':
+    case 'image/jpg':
+      return '.jpg'
+    case 'image/webp':
+      return '.webp'
+    case 'image/gif':
+      return '.gif'
+    case 'image/svg+xml':
+      return '.svg'
+    case 'image/png':
+    default:
+      return '.png'
+  }
+}
+
 export async function resolveOpenAICompatClientConfig(userId: string, providerId: string): Promise<OpenAICompatClientConfig> {
   const config = await getProviderConfig(userId, providerId)
   if (!config.baseUrl) {
@@ -55,7 +72,7 @@ export async function toUploadFile(imageSource: string, index: number): Promise<
   const parsedDataUrl = parseDataUrl(imageSource)
   if (parsedDataUrl) {
     const bytes = Buffer.from(parsedDataUrl.base64, 'base64')
-    return await toFile(bytes, `reference-${index}.png`, { type: parsedDataUrl.mimeType })
+    return await toFile(bytes, `reference-${index}${extensionForMimeType(parsedDataUrl.mimeType)}`, { type: parsedDataUrl.mimeType })
   }
 
   if (imageSource.startsWith('http://') || imageSource.startsWith('https://') || imageSource.startsWith('/')) {
@@ -65,7 +82,7 @@ export async function toUploadFile(imageSource: string, index: number): Promise<
       throw new Error(`OPENAI_COMPAT_REFERENCE_INVALID: failed to parse image source ${index}`)
     }
     const bytes = Buffer.from(parsedCached.base64, 'base64')
-    return await toFile(bytes, `reference-${index}.png`, { type: parsedCached.mimeType })
+    return await toFile(bytes, `reference-${index}${extensionForMimeType(parsedCached.mimeType)}`, { type: parsedCached.mimeType })
   }
 
   const bytes = Buffer.from(imageSource, 'base64')

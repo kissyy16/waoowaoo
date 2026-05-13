@@ -88,6 +88,7 @@ const ROUTE_FILES = [
   'src/app/api/novel-promotion/[projectId]/cleanup-unselected-images/route.ts',
   'src/app/api/novel-promotion/[projectId]/clips/[clipId]/route.ts',
   'src/app/api/novel-promotion/[projectId]/clips/route.ts',
+  'src/app/api/novel-promotion/[projectId]/compose/route.ts',
   'src/app/api/novel-promotion/[projectId]/copy-from-global/route.ts',
   'src/app/api/novel-promotion/[projectId]/download-images/route.ts',
   'src/app/api/novel-promotion/[projectId]/download-videos/route.ts',
@@ -206,6 +207,7 @@ function resolveContractGroup(routeFile: string): RouteContractGroup {
   if (
     routeFile.endsWith('/generate-image/route.ts')
     || routeFile.endsWith('/generate-video/route.ts')
+    || routeFile.endsWith('/compose/route.ts')
     || routeFile.endsWith('/generate/route.ts')
     || routeFile.endsWith('/modify-image/route.ts')
     || routeFile.endsWith('/modify-render/route.ts')

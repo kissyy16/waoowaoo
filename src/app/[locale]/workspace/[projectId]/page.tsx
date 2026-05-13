@@ -22,7 +22,7 @@ import { useRouter } from '@/i18n/navigation'
 import { readApiErrorMessage } from '@/lib/api/read-error-message'
 
 // 有效的stage值
-const VALID_STAGES = ['config', 'script', 'assets', 'text-storyboard', 'storyboard', 'videos', 'voice', 'editor'] as const
+const VALID_STAGES = ['config', 'script', 'assets', 'text-storyboard', 'storyboard', 'videos', 'voice', 'compose', 'editor'] as const
 type Stage = typeof VALID_STAGES[number]
 
 interface Episode {
@@ -111,8 +111,14 @@ export default function ProjectDetailPage() {
 
   // Stage 状态完全由 URL 控制，不再从数据库同步
   // 如果 URL 没有 stage 参数，默认使用 'config'
-  // 🚧 剪辑阶段 (editor) 暂时禁用，自动重定向到成片阶段 (videos)
-  const effectiveStage = currentUrlStage === 'editor' ? 'videos' : (currentUrlStage || 'config')
+  // 旧 editor 阶段兼容跳转到 compose。
+  const effectiveStage = currentUrlStage === 'editor' ? 'compose' : (currentUrlStage || 'config')
+
+  useEffect(() => {
+    if (currentUrlStage === 'editor') {
+      updateUrlParams({ stage: 'compose' })
+    }
+  }, [currentUrlStage, updateUrlParams])
 
   // 获取剧集列表
   const novelPromotionData = project?.novelPromotionData as NovelPromotionData | undefined

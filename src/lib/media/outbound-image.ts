@@ -343,10 +343,10 @@ function detectMimeFromBuffer(buffer: Uint8Array): string | null {
 }
 
 function guessContentType(input: string, contentTypeHeader: string | null, buffer: Uint8Array): string {
-  const headerType = contentTypeHeader?.split(';')[0]?.trim()
-  if (headerType && headerType !== DEFAULT_CONTENT_TYPE) return headerType
   const sniffedType = detectMimeFromBuffer(buffer)
   if (sniffedType) return sniffedType
+  const headerType = contentTypeHeader?.split(';')[0]?.trim()
+  if (headerType && headerType !== DEFAULT_CONTENT_TYPE) return headerType
   const parsed = toUrlMaybe(input)
   const pathname = parsed?.pathname ?? input
   const ext = path.extname(pathname).toLowerCase()

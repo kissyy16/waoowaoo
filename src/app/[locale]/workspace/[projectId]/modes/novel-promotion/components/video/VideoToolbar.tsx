@@ -14,8 +14,9 @@ interface VideoToolbarProps {
   onGenerateAll: () => void
   onDownloadAll: () => void
   onBack: () => void
-  onEnterEditor?: () => void  // 进入剪辑器
-  videosReady?: boolean  // 是否有视频可以剪辑
+  onStartCompose?: () => void
+  canStartCompose?: boolean
+  isStartingCompose?: boolean
 }
 
 export default function VideoToolbar({
@@ -28,8 +29,9 @@ export default function VideoToolbar({
   onGenerateAll,
   onDownloadAll,
   onBack,
-  onEnterEditor,
-  videosReady = false
+  onStartCompose,
+  canStartCompose = false,
+  isStartingCompose = false
 }: VideoToolbarProps) {
   const t = useTranslations('video')
   const videoTaskRunningState = isAnyTaskRunning
@@ -98,15 +100,19 @@ export default function VideoToolbar({
               </>
             )}
           </button>
-          {onEnterEditor && (
+          {onStartCompose && (
             <button
-              onClick={onEnterEditor}
-              disabled={!videosReady}
+              onClick={onStartCompose}
+              disabled={!canStartCompose || isStartingCompose}
               className="glass-btn-base glass-btn-secondary flex items-center gap-2 px-4 py-2 text-sm font-medium border border-[var(--glass-stroke-base)] disabled:opacity-50 disabled:cursor-not-allowed"
-              title={videosReady ? t('toolbar.enterEditor') : t('panelCard.needVideo')}
+              title={canStartCompose ? t('toolbar.nextCompose') : t('toolbar.composeNeedsAllVideos')}
             >
-              <AppIcon name="wandOff" className="w-4 h-4" />
-              <span>{t('toolbar.enterEdit')}</span>
+              {isStartingCompose ? (
+                <AppIcon name="loader" className="w-4 h-4 animate-spin" />
+              ) : (
+                <AppIcon name="chevronRight" className="w-4 h-4" />
+              )}
+              <span>{isStartingCompose ? t('toolbar.composeStarting') : t('toolbar.nextCompose')}</span>
             </button>
           )}
           <button

@@ -1,5 +1,5 @@
 import React from 'react'
-import { AbsoluteFill, Sequence, Video, Audio, useCurrentFrame, interpolate } from 'remotion'
+import { AbsoluteFill, Sequence, OffthreadVideo, Audio, useCurrentFrame, interpolate } from 'remotion'
 import { VideoClip, BgmClip, EditorConfig } from '../types/editor.types'
 import { computeClipPositions } from '../utils/time-utils'
 
@@ -112,6 +112,11 @@ const ClipRenderer: React.FC<ClipRendererProps> = ({
     void config
     const frame = useCurrentFrame()
     const clipDuration = clip.durationInFrames
+    const sourceDuration = typeof clip.sourceDurationInFrames === 'number' && Number.isFinite(clip.sourceDurationInFrames)
+        ? Math.max(1, Math.floor(clip.sourceDurationInFrames))
+        : clipDuration
+    const playbackRate = sourceDuration < clipDuration ? sourceDuration / clipDuration : 1
+    const trimStart = clip.trim?.from || 0
 
     // 计算转场效果
     let opacity = 1
@@ -161,10 +166,10 @@ const ClipRenderer: React.FC<ClipRendererProps> = ({
 
     return (
         <AbsoluteFill style={{ opacity, transform }}>
-            {/* 视频 */}
-            <Video
+            <OffthreadVideo
                 src={clip.src}
-                startFrom={clip.trim?.from || 0}
+                startFrom={trimStart}
+                playbackRate={playbackRate}
                 style={{
                     width: '100%',
                     height: '100%',

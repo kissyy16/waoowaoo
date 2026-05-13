@@ -36,6 +36,7 @@ export interface VideoClip {
     id: string
     src: string                    // COS URL
     durationInFrames: number       // 播放时长
+    sourceDurationInFrames?: number // 源视频真实可播放帧数；不足时渲染层冻结尾帧补足
 
     // 素材内裁剪 (可选)
     trim?: {

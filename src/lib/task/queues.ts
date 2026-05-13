@@ -52,7 +52,7 @@ const IMAGE_TYPES = new Set<TaskType>([
   TASK_TYPE.ASSET_HUB_MODIFY,
 ])
 
-const VIDEO_TYPES = new Set<TaskType>([TASK_TYPE.VIDEO_PANEL, TASK_TYPE.LIP_SYNC])
+const VIDEO_TYPES = new Set<TaskType>([TASK_TYPE.VIDEO_PANEL, TASK_TYPE.VIDEO_COMPOSE, TASK_TYPE.LIP_SYNC])
 const VOICE_TYPES = new Set<TaskType>([
   TASK_TYPE.VOICE_LINE,
   TASK_TYPE.VOICE_DESIGN,
@@ -62,6 +62,7 @@ const VOICE_TYPES = new Set<TaskType>([
 const SINGLE_ATTEMPT_TASK_TYPES = new Set<TaskType>([
   TASK_TYPE.STORY_TO_SCRIPT_RUN,
   TASK_TYPE.SCRIPT_TO_STORYBOARD_RUN,
+  TASK_TYPE.VIDEO_COMPOSE,
 ])
 
 export function getQueueTypeByTaskType(type: TaskType): QueueType {

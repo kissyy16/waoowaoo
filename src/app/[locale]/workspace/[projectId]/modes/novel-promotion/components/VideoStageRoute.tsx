@@ -1,12 +1,17 @@
 'use client'
 
+import { useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import VideoStage from './VideoStage'
 import { useWorkspaceStageRuntime } from '../WorkspaceStageRuntimeContext'
 import { useWorkspaceEpisodeStageData } from '../hooks/useWorkspaceEpisodeStageData'
 import type { Clip as VideoClip } from './video'
 import { useWorkspaceProvider } from '../WorkspaceProvider'
+import { apiFetch } from '@/lib/api-fetch'
+import { readApiErrorMessage } from '@/lib/api/read-error-message'
 
 export default function VideoStageRoute() {
+  const t = useTranslations('video')
   const runtime = useWorkspaceStageRuntime()
   const { projectId, episodeId } = useWorkspaceProvider()
   const { clips, storyboards } = useWorkspaceEpisodeStageData()
@@ -16,6 +21,20 @@ export default function VideoStageRoute() {
     end: clip.end ?? 0,
     summary: clip.summary,
   }))
+
+  const handleStartCompose = useCallback(async () => {
+    if (!episodeId) return
+    const res = await apiFetch(`/api/novel-promotion/${projectId}/compose`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ episodeId }),
+    })
+    if (!res.ok) {
+      alert(await readApiErrorMessage(res, t('compose.startFailed')))
+      return
+    }
+    runtime.onStageChange('compose')
+  }, [episodeId, projectId, runtime, t])
 
   if (!episodeId) return null
 
@@ -34,6 +53,7 @@ export default function VideoStageRoute() {
       onBack={() => runtime.onStageChange('storyboard')}
       onUpdateVideoPrompt={runtime.onUpdateVideoPrompt}
       onUpdatePanelVideoModel={runtime.onUpdatePanelVideoModel}
+      onStartCompose={handleStartCompose}
       onOpenAssetLibraryForCharacter={(characterId) =>
         characterId
           ? runtime.onOpenAssetLibraryForCharacter(characterId, false)
