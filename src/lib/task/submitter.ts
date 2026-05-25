@@ -14,7 +14,6 @@ import {
 import { TASK_EVENT_TYPE, TASK_STATUS, TASK_TYPE, type TaskBillingInfo, type TaskType } from './types'
 import {
   buildDefaultTaskBillingInfo,
-  getBillingMode,
   InsufficientBalanceError,
   isBillableTaskType,
   prepareTaskBilling,
@@ -224,20 +223,12 @@ export async function submitTask(params: {
 
   let preparedBillingInfo = (task.billingInfo || resolvedBillingInfo || null) as TaskBillingInfo | null
   if (!deduped && isBillableTaskType(params.type) && preparedBillingInfo?.billable !== true) {
-    const billingMode = await getBillingMode()
-    if (billingMode === 'ENFORCE') {
-      await markTaskFailed(task.id, 'INVALID_PARAMS', `missing server-generated billingInfo for billable task type: ${params.type}`)
-      throw new ApiError('INVALID_PARAMS', {
-        message: `missing server-generated billingInfo for billable task type: ${params.type}`,
-      })
-    }
     logger.warn({
-      action: 'task.submit.billing_info_missing_non_enforce',
-      message: `missing billingInfo ignored in ${billingMode} mode`,
+      action: 'task.submit.billing_info_missing',
+      message: `missing billingInfo ignored for billable task type: ${params.type}`,
       taskId: task.id,
       details: {
         type: params.type,
-        billingMode,
       },
     })
   }
