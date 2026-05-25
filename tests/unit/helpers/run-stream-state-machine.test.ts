@@ -197,6 +197,61 @@ describe('run stream state-machine', () => {
     expect(state?.stepsById['clip_y_phase1']?.textOutput).toBe('new-output')
   })
 
+  it('reopens a failed run when a manual retry starts', () => {
+    const runId = 'run-retry-reopen'
+    const state = applySequence([
+      { runId, event: 'run.start', ts: '2026-02-26T23:00:00.000Z', status: 'running' },
+      {
+        runId,
+        event: 'step.start',
+        ts: '2026-02-26T23:00:01.000Z',
+        status: 'running',
+        stepId: 'clip_a_phase3_detail',
+        stepTitle: 'detail',
+        stepIndex: 3,
+        stepTotal: 3,
+      },
+      {
+        runId,
+        event: 'step.error',
+        ts: '2026-02-26T23:00:02.000Z',
+        status: 'failed',
+        stepId: 'clip_a_phase3_detail',
+        message: 'fetch failed',
+      },
+      {
+        runId,
+        event: 'run.error',
+        ts: '2026-02-26T23:00:03.000Z',
+        status: 'failed',
+        message: 'fetch failed',
+      },
+      {
+        runId,
+        event: 'run.start',
+        ts: '2026-02-26T23:00:04.000Z',
+        status: 'running',
+        payload: {
+          retryStepKey: 'clip_a_phase3_detail',
+          retryStepAttempt: 4,
+          invalidatedStepKeys: ['clip_a_phase3_detail'],
+        },
+      },
+    ])
+
+    expect(state?.status).toBe('running')
+    expect(state?.errorMessage).toBe('')
+    expect(state?.terminalAt).toBeNull()
+    expect(state?.activeStepId).toBe('clip_a_phase3_detail')
+    expect(state?.selectedStepId).toBe('clip_a_phase3_detail')
+    expect(state?.stepsById['clip_a_phase3_detail']).toMatchObject({
+      attempt: 4,
+      status: 'pending',
+      errorMessage: '',
+      textOutput: '',
+    })
+  })
+
   it('reopens completed step when late chunk arrives, then finalizes on run.complete', () => {
     const runId = 'run-4'
     const state = applySequence([

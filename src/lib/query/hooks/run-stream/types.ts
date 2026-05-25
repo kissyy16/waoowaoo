@@ -85,7 +85,7 @@ export type RunStreamView = {
   overallProgress: number
   activeMessage: string
   run: (params: Record<string, unknown>) => Promise<RunResult>
-  retryStep: (params: { stepId: string; modelOverride?: string; reason?: string }) => Promise<RunResult>
+  retryStep: (params: { stepId: string; reason?: string }) => Promise<RunResult>
   stop: () => void
   reset: () => void
   selectStep: (stepId: string) => void

@@ -92,7 +92,7 @@ describe('script-to-storyboard atomic retry', () => {
         throw new Error(`unexpected action ${action}`)
       }
       return {
-        text: JSON.stringify([{ panel_number: 1, description: 'phase3-new', location: 'Office', source_text: 'src', characters: [] }]),
+        text: JSON.stringify([{ panel_number: 1, description: 'phase3-new', location: 'Office', source_text: 'src', characters: [], duration: 5 }]),
         reasoning: '',
       }
     })
@@ -133,7 +133,7 @@ describe('script-to-storyboard atomic retry', () => {
     expect(result.phase2CinematographyByClipId).toEqual({})
     expect(result.phase2ActingByClipId).toEqual({})
     expect(result.phase3PanelsByClipId['clip-1']).toEqual([
-      { panel_number: 1, description: 'phase3-new', location: 'Office', source_text: 'src', characters: [] },
+      { panel_number: 1, description: 'phase3-new', location: 'Office', source_text: 'src', characters: [], duration: 5 },
     ])
     expect(result.clipPanels).toHaveLength(1)
     expect(result.clipPanels[0]?.finalPanels[0]).toEqual(expect.objectContaining({
@@ -148,7 +148,7 @@ describe('script-to-storyboard atomic retry', () => {
     expect(result.totalPanelCount).toBe(1)
   })
 
-  it('phase2 重试缺少 phase3 artifact 时显式失败', async () => {
+  it('phase2 重试缺少 phase3 artifact 时补跑下游 phase3', async () => {
     listArtifactsMock.mockImplementation(async (params: {
       runId: string
       artifactType?: string
@@ -183,16 +183,29 @@ describe('script-to-storyboard atomic retry', () => {
     })
 
     const runStep = vi.fn(async (_meta, _prompt, action: string) => {
-      if (action !== 'storyboard_phase2_cinematography') {
-        throw new Error(`unexpected action ${action}`)
+      if (action === 'storyboard_phase2_cinematography') {
+        return {
+          text: JSON.stringify([{
+            panel_number: 1,
+            composition: '居中',
+            lighting: '顶光',
+            color_palette: '冷色',
+            atmosphere: '紧张',
+            technical_notes: 'note',
+          }]),
+          reasoning: '',
+        }
       }
-      return {
-        text: JSON.stringify([{ panel_number: 1, composition: '居中' }]),
-        reasoning: '',
+      if (action === 'storyboard_phase3_detail') {
+        return {
+          text: JSON.stringify([{ panel_number: 1, description: 'phase3-new', location: 'Office', source_text: 'src', characters: [], duration: 5 }]),
+          reasoning: '',
+        }
       }
+      throw new Error(`unexpected action ${action}`)
     })
 
-    await expect(runScriptToStoryboardAtomicRetry({
+    const result = await runScriptToStoryboardAtomicRetry({
       runId: 'run-2',
       retryTarget: {
         stepKey: 'clip_clip-1_phase2_cinematography',
@@ -220,6 +233,103 @@ describe('script-to-storyboard atomic retry', () => {
         phase3DetailTemplate: '{panels_json} {characters_age_gender} {locations_description}',
       },
       runStep,
-    })).rejects.toThrow('missing dependency artifact: storyboard.clip.phase3')
+    })
+
+    expect(runStep.mock.calls.map((call) => call[2])).toEqual([
+      'storyboard_phase2_cinematography',
+      'storyboard_phase3_detail',
+    ])
+    expect(result.phase2CinematographyByClipId['clip-1']).toHaveLength(1)
+    expect(result.phase3PanelsByClipId['clip-1']).toHaveLength(1)
+    expect(result.clipPanels[0]?.finalPanels[0]).toEqual(expect.objectContaining({
+      description: 'phase3-new',
+      photographyPlan: expect.objectContaining({
+        composition: '居中',
+      }),
+    }))
+  })
+
+  it('phase3 重试缺少 phase1 artifact 时补跑完整依赖链', async () => {
+    listArtifactsMock.mockResolvedValue([])
+
+    const runStep = vi.fn(async (_meta, _prompt, action: string) => {
+      if (action === 'storyboard_phase1_plan') {
+        return {
+          text: JSON.stringify([{ panel_number: 1, description: 'p1', location: 'Office', source_text: 'src', characters: [] }]),
+          reasoning: '',
+        }
+      }
+      if (action === 'storyboard_phase2_cinematography') {
+        return {
+          text: JSON.stringify([{
+            panel_number: 1,
+            composition: '居中',
+            lighting: '顶光',
+            color_palette: '冷色',
+            atmosphere: '紧张',
+            technical_notes: 'note',
+          }]),
+          reasoning: '',
+        }
+      }
+      if (action === 'storyboard_phase2_acting') {
+        return {
+          text: JSON.stringify([{ panel_number: 1, characters: [{ name: 'Narrator', expression: 'serious' }] }]),
+          reasoning: '',
+        }
+      }
+      if (action === 'storyboard_phase3_detail') {
+        return {
+          text: JSON.stringify([{ panel_number: 1, description: 'phase3-new', location: 'Office', source_text: 'src', characters: [], duration: 5 }]),
+          reasoning: '',
+        }
+      }
+      throw new Error(`unexpected action ${action}`)
+    })
+
+    const result = await runScriptToStoryboardAtomicRetry({
+      runId: 'run-3',
+      retryTarget: {
+        stepKey: 'clip_clip-1_phase3_detail',
+        clipId: 'clip-1',
+        phase: 'phase3_detail',
+      },
+      retryStepAttempt: 4,
+      clip: {
+        id: 'clip-1',
+        content: 'clip content',
+        characters: JSON.stringify([{ name: 'Narrator' }]),
+        location: 'Office',
+        screenplay: null,
+      },
+      clipIndex: 0,
+      totalClipCount: 1,
+      novelPromotionData: {
+        characters: [{ name: 'Narrator', appearances: [] }],
+        locations: [{ name: 'Office', images: [{ description: 'room desc' }] }],
+      },
+      promptTemplates: {
+        phase1PlanTemplate: '{clip_content}',
+        phase2CinematographyTemplate: '{panels_json} {panel_count} {locations_description} {characters_info}',
+        phase2ActingTemplate: '{panels_json} {panel_count} {characters_info}',
+        phase3DetailTemplate: '{panels_json} {characters_age_gender} {locations_description}',
+      },
+      runStep,
+    })
+
+    expect(runStep.mock.calls.map((call) => call[2])).toEqual([
+      'storyboard_phase1_plan',
+      'storyboard_phase2_cinematography',
+      'storyboard_phase2_acting',
+      'storyboard_phase3_detail',
+    ])
+    expect(result.phase1PanelsByClipId['clip-1']).toHaveLength(1)
+    expect(result.phase2CinematographyByClipId['clip-1']).toHaveLength(1)
+    expect(result.phase2ActingByClipId['clip-1']).toHaveLength(1)
+    expect(result.phase3PanelsByClipId['clip-1']).toHaveLength(1)
+    expect(result.clipPanels[0]?.finalPanels[0]).toEqual(expect.objectContaining({
+      description: 'phase3-new',
+      actingNotes: [{ name: 'Narrator', expression: 'serious' }],
+    }))
   })
 })

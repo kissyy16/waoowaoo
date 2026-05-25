@@ -164,10 +164,49 @@ function mergeStringArray(base: string[], incoming: string[]): string[] {
   return next
 }
 
+function readRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return value as Record<string, unknown>
+}
+
+function readString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed || null
+}
+
+function readPositiveInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(1, Math.floor(value))
+  }
+  return null
+}
+
 function readBool(value: unknown): boolean | null {
   if (value === true) return true
   if (value === false) return false
   return null
+}
+
+function readRetryStartPayload(payload: Record<string, unknown> | null | undefined): {
+  invalidatedStepKeys: string[]
+  retryAttempt: number | null
+  retryStepKey: string | null
+} {
+  const record = readRecord(payload)
+  const meta = readRecord(record.meta)
+  const retryStepKey =
+    readString(record.retryStepKey) ||
+    readString(meta.retryStepKey)
+  const retryAttempt =
+    readPositiveInt(record.retryStepAttempt) ||
+    readPositiveInt(meta.retryStepAttempt)
+  const invalidatedStepKeys = readStringArray(record.invalidatedStepKeys)
+  return {
+    invalidatedStepKeys,
+    retryAttempt,
+    retryStepKey,
+  }
 }
 
 function buildDefaultStep(event: RunStreamEvent, now: number): RunStepState {
@@ -214,6 +253,24 @@ function buildDefaultStep(event: RunStreamEvent, now: number): RunStepState {
 
 function resetStepForRetry(step: RunStepState, attempt: number) {
   step.attempt = attempt
+  step.status = 'pending'
+  step.textOutput = ''
+  step.reasoningOutput = ''
+  step.textLength = 0
+  step.reasoningLength = 0
+  step.message = ''
+  step.errorMessage = ''
+  step.blockedBy = []
+  step.seqByLane = {
+    text: 0,
+    reasoning: 0,
+  }
+}
+
+function resetInvalidatedStep(step: RunStepState, attempt?: number | null) {
+  if (typeof attempt === 'number' && Number.isFinite(attempt)) {
+    step.attempt = Math.max(1, Math.floor(attempt))
+  }
   step.status = 'pending'
   step.textOutput = ''
   step.reasoningOutput = ''
@@ -291,6 +348,37 @@ export function applyRunStreamEvent(prev: RunState | null, event: RunStreamEvent
 
   if (event.event === 'run.start') {
     const nextStatus = normalizeRunStatus(event.status)
+    const retryPayload = readRetryStartPayload(event.payload)
+    if (retryPayload.retryStepKey && nextStatus === 'running') {
+      base.status = 'running'
+      base.terminalAt = null
+      base.errorMessage = ''
+      base.summary = null
+      if (event.payload && typeof event.payload === 'object') {
+        base.payload = event.payload
+      }
+      const invalidatedStepKeys = retryPayload.invalidatedStepKeys.length > 0
+        ? retryPayload.invalidatedStepKeys
+        : [retryPayload.retryStepKey]
+      const nextStepsById: Record<string, RunStepState> = { ...base.stepsById }
+      for (const invalidatedStepKey of invalidatedStepKeys) {
+        const existingStep = nextStepsById[invalidatedStepKey]
+        if (!existingStep) continue
+        const nextStep = { ...existingStep }
+        resetInvalidatedStep(
+          nextStep,
+          invalidatedStepKey === retryPayload.retryStepKey ? retryPayload.retryAttempt : null,
+        )
+        nextStep.updatedAt = now
+        nextStepsById[invalidatedStepKey] = nextStep
+      }
+      base.stepsById = nextStepsById
+      if (base.stepsById[retryPayload.retryStepKey]) {
+        base.activeStepId = retryPayload.retryStepKey
+        base.selectedStepId = retryPayload.retryStepKey
+      }
+      return base
+    }
     base.status = lockForwardRunStatus(base.status, nextStatus === 'idle' ? 'running' : nextStatus)
     if (event.payload && typeof event.payload === 'object') {
       base.payload = event.payload

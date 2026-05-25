@@ -169,7 +169,6 @@ export function useRunStreamState<TParams extends Record<string, unknown>>(
 
   const retryStep = useCallback(async (params: {
     stepId: string
-    modelOverride?: string
     reason?: string
   }): Promise<RunResult> => {
     const runId = runStateRef.current?.runId || ''
@@ -187,7 +186,6 @@ export function useRunStreamState<TParams extends Record<string, unknown>>(
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          modelOverride: params.modelOverride || undefined,
           reason: params.reason || undefined,
         }),
       },
@@ -201,19 +199,35 @@ export function useRunStreamState<TParams extends Record<string, unknown>>(
       throw new Error(errorMessage)
     }
 
+    const responsePayload = payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>)
+      : {}
+    const retryAttempt =
+      typeof responsePayload.retryAttempt === 'number' && Number.isFinite(responsePayload.retryAttempt)
+        ? Math.max(1, Math.floor(responsePayload.retryAttempt))
+        : undefined
+    const invalidatedStepKeys = Array.isArray(responsePayload.invalidatedStepKeys)
+      ? responsePayload.invalidatedStepKeys.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : []
     applyEvent({
       runId,
       event: 'run.start',
       ts: new Date().toISOString(),
       status: 'running',
       message: 'retrying failed step',
+      payload: {
+        retry: true,
+        retryStepKey: stepId,
+        retryStepAttempt: retryAttempt,
+        invalidatedStepKeys,
+      },
     })
     setIsRecoveredRunning(true)
     return {
       runId,
       status: 'running',
       summary: null,
-      payload: payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : null,
+      payload: responsePayload,
       errorMessage: '',
     }
   }, [applyEvent])

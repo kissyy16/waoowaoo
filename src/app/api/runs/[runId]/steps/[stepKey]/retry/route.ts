@@ -54,7 +54,6 @@ export const POST = apiHandler(async (
 
   const body = await request.json().catch(() => null)
   const payload = toObject(body)
-  const modelOverride = readString(payload.modelOverride)
   const reason = readString(payload.reason)
 
   let prepared: Awaited<ReturnType<typeof retryFailedStep>> = null
@@ -101,10 +100,8 @@ export const POST = apiHandler(async (
       retryReason: reason || null,
     },
   }
-  if (modelOverride) {
-    taskPayload.model = modelOverride
-    taskPayload.analysisModel = modelOverride
-  }
+  delete taskPayload.model
+  delete taskPayload.analysisModel
 
   const submitResult = await submitTask({
     userId: session.user.id,
@@ -125,6 +122,7 @@ export const POST = apiHandler(async (
     runId,
     stepKey,
     retryAttempt: prepared.retryAttempt,
+    invalidatedStepKeys: prepared.invalidatedStepKeys,
     taskId: submitResult.taskId,
     async: true,
   })

@@ -56,6 +56,8 @@ describe('api contract - run step retry route', () => {
       input: {
         episodeId: 'episode-1',
         content: 'test content',
+        model: 'openai/old-model',
+        analysisModel: 'openai/old-model',
         meta: { locale: 'zh' },
       },
     })
@@ -63,6 +65,7 @@ describe('api contract - run step retry route', () => {
       run: { id: 'run-1' },
       step: { stepKey: 'screenplay_clip_2' },
       retryAttempt: 2,
+      invalidatedStepKeys: ['screenplay_clip_2'],
     })
     submitTaskMock.mockResolvedValue({
       success: true,
@@ -81,7 +84,7 @@ describe('api contract - run step retry route', () => {
     const req = buildMockRequest({
       path: '/api/runs/run-1/steps/screenplay_clip_2/retry',
       method: 'POST',
-      body: { modelOverride: 'openai/gpt-5' },
+      body: {},
     })
     const res = await route.POST(req, {
       params: Promise.resolve({ runId: 'run-1', stepKey: 'screenplay_clip_2' }),
@@ -98,7 +101,6 @@ describe('api contract - run step retry route', () => {
       path: '/api/runs/run-1/steps/screenplay_clip_2/retry',
       method: 'POST',
       body: {
-        modelOverride: 'openai/gpt-5',
         reason: 'manual retry',
       },
     })
@@ -112,12 +114,14 @@ describe('api contract - run step retry route', () => {
       runId: string
       stepKey: string
       retryAttempt: number
+      invalidatedStepKeys: string[]
       taskId: string
     }
     expect(payload.success).toBe(true)
     expect(payload.runId).toBe('run-1')
     expect(payload.stepKey).toBe('screenplay_clip_2')
     expect(payload.retryAttempt).toBe(2)
+    expect(payload.invalidatedStepKeys).toEqual(['screenplay_clip_2'])
     expect(payload.taskId).toBe('task-retry-1')
 
     expect(submitTaskMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -127,8 +131,10 @@ describe('api contract - run step retry route', () => {
         runId: 'run-1',
         retryStepKey: 'screenplay_clip_2',
         retryStepAttempt: 2,
-        model: 'openai/gpt-5',
       }),
     }))
+    const submitted = submitTaskMock.mock.calls[0]?.[0] as { payload?: Record<string, unknown> }
+    expect(submitted.payload).not.toHaveProperty('model')
+    expect(submitted.payload).not.toHaveProperty('analysisModel')
   })
 })

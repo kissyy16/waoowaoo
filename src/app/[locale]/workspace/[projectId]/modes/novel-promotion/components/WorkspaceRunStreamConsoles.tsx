@@ -25,7 +25,7 @@ type RunStreamState = {
   stop: () => void
   reset: () => void
   selectStep: (stepId: string) => void
-  retryStep: (params: { stepId: string; modelOverride?: string; reason?: string }) => Promise<{
+  retryStep: (params: { stepId: string; reason?: string }) => Promise<{
     runId: string
     status: string
     summary: Record<string, unknown> | null
@@ -126,13 +126,8 @@ export default function WorkspaceRunStreamConsoles({
     stream: RunStreamState,
     stepId: string,
   ) => {
-    const input = typeof window !== 'undefined'
-      ? window.prompt('可选：输入重试模型（留空使用当前模型）')
-      : null
-    const modelOverride = typeof input === 'string' ? input.trim() : ''
     await stream.retryStep({
       stepId,
-      modelOverride: modelOverride || undefined,
       reason: 'user_retry_from_console',
     })
   }
