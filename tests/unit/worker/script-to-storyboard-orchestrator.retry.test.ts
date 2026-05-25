@@ -15,7 +15,7 @@ describe('script-to-storyboard orchestrator retry', () => {
           throw new TypeError('terminated')
         }
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }
@@ -27,7 +27,7 @@ describe('script-to-storyboard orchestrator retry', () => {
         return { text: JSON.stringify([{ panel_number: 1, characters: [] }]), reasoning: '' }
       }
       return {
-        text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [] }]),
+        text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [], duration: 5 }]),
         reasoning: '',
       }
     })
@@ -143,7 +143,7 @@ describe('script-to-storyboard orchestrator retry', () => {
       actionOrder.push(action)
       if (action === 'storyboard_phase1_plan') {
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }
@@ -155,7 +155,7 @@ describe('script-to-storyboard orchestrator retry', () => {
       }
       if (action === 'storyboard_phase3_detail') {
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }
@@ -204,7 +204,7 @@ describe('script-to-storyboard orchestrator retry', () => {
         await new Promise((resolve) => setTimeout(resolve, 5))
         activePhase1 -= 1
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }
@@ -226,7 +226,7 @@ describe('script-to-storyboard orchestrator retry', () => {
       }
       if (action === 'storyboard_phase3_detail') {
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '镜头', location: '场景A', source_text: '原文', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }
@@ -290,14 +290,14 @@ describe('script-to-storyboard orchestrator retry', () => {
         await clip1Phase1Gate
         clip1Phase1ResolvedAfterClip2Phase2 = clip2Phase2Started
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '镜头1', location: '场景A', source_text: '原文1', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '镜头1', location: '场景A', source_text: '原文1', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }
 
       if (action === 'storyboard_phase1_plan' && stepId === 'clip_clip-2_phase1') {
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '镜头2', location: '场景A', source_text: '原文2', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '镜头2', location: '场景A', source_text: '原文2', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }
@@ -324,7 +324,7 @@ describe('script-to-storyboard orchestrator retry', () => {
 
       if (action === 'storyboard_phase3_detail') {
         return {
-          text: JSON.stringify([{ panel_number: 1, description: '细化镜头', location: '场景A', source_text: '原文', characters: [] }]),
+          text: JSON.stringify([{ panel_number: 1, description: '细化镜头', location: '场景A', source_text: '原文', characters: [], duration: 5 }]),
           reasoning: '',
         }
       }

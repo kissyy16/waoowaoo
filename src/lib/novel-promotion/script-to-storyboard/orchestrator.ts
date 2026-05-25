@@ -28,6 +28,7 @@ import {
   allocateClipDurations,
   buildClipStoryboardDurationGuidance,
   normalizePanelDurations,
+  requireGeneratedPanelDurations,
 } from '@/lib/novel-promotion/duration-planning'
 
 type JsonRecord = Record<string, unknown>
@@ -482,7 +483,7 @@ export async function runScriptToStoryboardOrchestrator(
           }
           return typeof clipTargetDurationSeconds === 'number'
             ? normalizePanelDurations(filtered, clipTargetDurationSeconds)
-            : filtered
+            : requireGeneratedPanelDurations(filtered)
         },
       )
 

@@ -26,7 +26,7 @@ Required fields per panel:
 - shot_type
 - camera_move
 - video_prompt
-- duration (optional)
+- duration
 
 Output schema example (field names must be preserved):
 [
@@ -55,5 +55,6 @@ Rules:
 7. `slot` is not an absolute boundary. If the shot is clearly about movement, entry/exit, path traversal, transition space, temporary space, empty space, imagination, dream, memory, or abstract/non-literal space, you may remove `slot` or keep it without forcing a rigid static match.
 8. When no `slot` is used, decide placement freely from source text, action flow, spatial logic, and cinematic staging.
 9. Do not shorten, rewrite, summarize, or replace a provided `slot` phrase with a short token.
-10. Return JSON array only.
-11. ⚠️ JSON SAFETY: All quotation marks in text (""''「」 etc.) MUST be converted to corner brackets「」in JSON string values. NEVER use raw ASCII double quotes " inside string values.
+10. `duration` is required for every panel and must be an integer number of seconds. Keep a valid input duration when present; otherwise estimate it from the panel rhythm.
+11. Return JSON array only.
+12. ⚠️ JSON SAFETY: All quotation marks in text (""''「」 etc.) MUST be converted to corner brackets「」in JSON string values. NEVER use raw ASCII double quotes " inside string values.

@@ -30,6 +30,7 @@
    - props: ["道具名"]（仅填写画面中实际出现的道具；没有道具时填 []）
    - location: 场景名称（从资产库选择）
    - scene_type: daily/emotion/action/epic/suspense
+   - duration: 镜头时长秒数（整数，自动模式由你根据剧情节奏估算）
    - source_text: 对应原文片段 ⚠️ 必填，不得为空
 
 3. source_text 规则（极其重要）：
@@ -245,6 +246,7 @@
     "props": [],
     "location": "办公室",
     "scene_type": "daily",
+    "duration": 5,
     "source_text": "张三走进办公室，看着正在工作的李四和王五"
   },
   {
@@ -258,6 +260,7 @@
     "props": [],
     "location": "办公室",
     "scene_type": "daily",
+    "duration": 4,
     "source_text": "说：开会了"
   },
   {
@@ -271,6 +274,7 @@
     "props": [],
     "location": "办公室",
     "scene_type": "daily",
+    "duration": 5,
     "source_text": "李四抬头点了点头，王五放下手中的笔"
   },
   {
@@ -284,6 +288,7 @@
     "props": [],
     "location": "办公室",
     "scene_type": "daily",
+    "duration": 4,
     "source_text": "王五站起身"
   }
 ]
@@ -323,6 +328,7 @@ Clip信息：
 4. props 必须是字符串数组：["道具名"]；没有道具时返回 []
 5. 只返回JSON数组，不得有其他文字
 6. ⚠️ source_text 必填，不得为空或null
+6.1. ⚠️ duration 必填，必须是整数秒数；自动模式按剧情节奏估算，固定总时长模式按额外时长约束分配
 7. 空间关系必须清晰（朝向、阻挡、位置）
 8. 如果场景描述中提供了可站位置列表，应将其视为优先位置锚点，而不是强制覆盖所有可能位置的硬边界
 9. 当角色在场景中稳定停留时，优先从可站位置列表中选择 slot；slot 字段的值必须直接复制完整位置描述，禁止缩写、改写、总结或替换成短词

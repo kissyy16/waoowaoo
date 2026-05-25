@@ -55,6 +55,15 @@ function panelWeight(panel: StoryboardPanel): number {
   )
 }
 
+function readIntegerDuration(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value)) return value
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const parsed = Number(trimmed)
+  return Number.isInteger(parsed) ? parsed : null
+}
+
 function allocateIntegerSeconds(params: {
   totalSeconds: number
   weights: number[]
@@ -147,6 +156,25 @@ export function normalizePanelDurations(
   }))
 }
 
+export function requireGeneratedPanelDurations(panels: StoryboardPanel[]): StoryboardPanel[] {
+  return panels.map((panel, index) => {
+    const duration = readIntegerDuration((panel as { duration?: unknown }).duration)
+    if (
+      duration === null
+      || duration < PANEL_DURATION_MIN_SECONDS
+      || duration > PANEL_DURATION_MAX_SECONDS
+    ) {
+      throw new Error(
+        `Panel ${String(panel.panel_number ?? index + 1)} is missing valid duration (${PANEL_DURATION_MIN_SECONDS}-${PANEL_DURATION_MAX_SECONDS}s)`,
+      )
+    }
+    return {
+      ...panel,
+      duration,
+    }
+  })
+}
+
 export function buildStoryToScriptDurationGuidance(targetDurationSeconds: number | null | undefined): string {
   if (typeof targetDurationSeconds !== 'number') return ''
   assertTargetDuration(targetDurationSeconds)
@@ -164,7 +192,13 @@ export function buildClipStoryboardDurationGuidance(params: {
   clipTargetDurationSeconds?: number | null
 }): string {
   const clipTargetDurationSeconds = params.clipTargetDurationSeconds
-  if (typeof clipTargetDurationSeconds !== 'number') return ''
+  if (typeof clipTargetDurationSeconds !== 'number') {
+    return `
+
+【分镜时长要求】
+项目视频时长为自动模式。请根据剧情节奏为每个分镜输出整数 duration 字段，范围 ${PANEL_DURATION_MIN_SECONDS}-${PANEL_DURATION_MAX_SECONDS} 秒。
+duration 必须出现在每个分镜对象中，不得留空、不得省略；无需让所有分镜相加等于某个固定总时长。`
+  }
   assertAllocatableDuration(clipTargetDurationSeconds)
   const range = resolvePanelCountRange(clipTargetDurationSeconds)
   const totalLine = typeof params.totalTargetDurationSeconds === 'number'
