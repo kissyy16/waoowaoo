@@ -18,7 +18,9 @@ import {
     generateVideoViaOpenAICompat,
     generateVideoViaOpenAICompatTemplate,
     generateVideoViaNewApiCompat,
+    generateVideoViaXAICompat,
     isNewApiSeedanceVideoModel,
+    isXaiGrokVideoModel,
     resolveModelGatewayRoute,
 } from './model-gateway'
 import { generateBailianAudio, generateBailianImage, generateBailianVideo } from './providers/bailian'
@@ -241,9 +243,30 @@ export async function generateVideo(
         const shouldUseNewApiSeedanceVideo =
             providerKey === 'openai-compatible'
             && isNewApiSeedanceVideoModel(selection.modelId)
+        const shouldUseXaiGrokVideo =
+            providerKey === 'openai-compatible'
+            && isXaiGrokVideoModel(selection.modelId)
 
         if (shouldUseNewApiSeedanceVideo) {
             return await generateVideoViaNewApiCompat({
+                userId,
+                providerId: selection.provider,
+                modelId: selection.modelId,
+                modelKey: selection.modelKey,
+                imageUrl,
+                prompt: prompt || '',
+                options: {
+                    ...providerOptions,
+                    provider: selection.provider,
+                    modelId: selection.modelId,
+                    modelKey: selection.modelKey,
+                },
+                profile: 'openai-compatible',
+            })
+        }
+
+        if (shouldUseXaiGrokVideo) {
+            return await generateVideoViaXAICompat({
                 userId,
                 providerId: selection.provider,
                 modelId: selection.modelId,

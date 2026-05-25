@@ -23,6 +23,7 @@ const generateVideoViaOpenAICompatMock = vi.hoisted(() => vi.fn(async () => ({ s
 const generateImageViaOpenAICompatTemplateMock = vi.hoisted(() => vi.fn(async () => ({ success: true, imageUrl: 'image' })))
 const generateVideoViaOpenAICompatTemplateMock = vi.hoisted(() => vi.fn(async () => ({ success: true, videoUrl: 'video' })))
 const generateVideoViaNewApiCompatMock = vi.hoisted(() => vi.fn(async () => ({ success: true, async: true, externalId: 'NEWAPI:VIDEO:provider:task-1' })))
+const generateVideoViaXAICompatMock = vi.hoisted(() => vi.fn(async () => ({ success: true, async: true, externalId: 'XAI:VIDEO:provider:task-1' })))
 
 vi.mock('@/lib/api-config', () => ({
   resolveModelSelection: resolveModelSelectionMock,
@@ -37,7 +38,9 @@ vi.mock('@/lib/model-gateway', () => ({
   generateImageViaOpenAICompatTemplate: generateImageViaOpenAICompatTemplateMock,
   generateVideoViaOpenAICompatTemplate: generateVideoViaOpenAICompatTemplateMock,
   generateVideoViaNewApiCompat: generateVideoViaNewApiCompatMock,
+  generateVideoViaXAICompat: generateVideoViaXAICompatMock,
   isNewApiSeedanceVideoModel: (modelId: string) => modelId === 'doubao-seedance-2.0',
+  isXaiGrokVideoModel: (modelId: string) => modelId === 'grok-imagine-video' || modelId === 'grok-image-video',
   isOpenAISoraStyleVideoTemplate: () => false,
 }))
 
@@ -157,6 +160,37 @@ describe('generator-api requires compat media template for openai-compatible med
       imageUrl: 'https://example.com/a.png',
       prompt: 'animate',
     }))
+    expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
+    expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
+  })
+
+  it('routes openai-compatible Grok video without using the generic template', async () => {
+    resolveModelSelectionMock.mockResolvedValueOnce({
+      provider: 'openai-compatible:oa-1',
+      modelId: 'grok-imagine-video',
+      modelKey: 'openai-compatible:oa-1::grok-imagine-video',
+      mediaType: 'video',
+      compatMediaTemplate: undefined,
+    })
+
+    const result = await generateVideo(
+      'user-1',
+      'openai-compatible:oa-1::grok-imagine-video',
+      'https://example.com/a.png',
+      { prompt: 'animate', duration: 8 },
+    )
+
+    expect(result.success).toBe(true)
+    expect(generateVideoViaXAICompatMock).toHaveBeenCalledWith(expect.objectContaining({
+      providerId: 'openai-compatible:oa-1',
+      modelId: 'grok-imagine-video',
+      imageUrl: 'https://example.com/a.png',
+      prompt: 'animate',
+      options: expect.objectContaining({
+        duration: 8,
+      }),
+    }))
+    expect(generateVideoViaNewApiCompatMock).not.toHaveBeenCalled()
     expect(generateVideoViaOpenAICompatMock).not.toHaveBeenCalled()
     expect(generateVideoViaOpenAICompatTemplateMock).not.toHaveBeenCalled()
   })

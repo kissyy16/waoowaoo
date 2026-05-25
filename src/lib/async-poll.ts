@@ -54,7 +54,7 @@ function getErrorMessage(error: unknown): string {
  * 解析 externalId 获取 provider、type 和请求信息
  */
 export function parseExternalId(externalId: string): {
-    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'NEWAPI' | 'BAILIAN' | 'SILICONFLOW' | 'UNKNOWN'
+    provider: 'FAL' | 'ARK' | 'GEMINI' | 'GOOGLE' | 'MINIMAX' | 'VIDU' | 'OPENAI' | 'OCOMPAT' | 'NEWAPI' | 'XAI' | 'BAILIAN' | 'SILICONFLOW' | 'UNKNOWN'
     type: 'VIDEO' | 'IMAGE' | 'BATCH' | 'UNKNOWN'
     endpoint?: string
     requestId: string
@@ -204,6 +204,22 @@ export function parseExternalId(externalId: string): {
         }
     }
 
+    if (externalId.startsWith('XAI:')) {
+        const parts = externalId.split(':')
+        const type = parts[1]
+        const providerToken = parts[2]
+        const requestId = parts.slice(3).join(':')
+        if (type !== 'VIDEO' || !providerToken || !requestId) {
+            throw new Error(`无效 XAI externalId: "${externalId}"，应为 XAI:VIDEO:providerToken:requestId`)
+        }
+        return {
+            provider: 'XAI',
+            type: 'VIDEO',
+            providerToken,
+            requestId,
+        }
+    }
+
     if (externalId.startsWith('BAILIAN:')) {
         const parts = externalId.split(':')
         const type = parts[1]
@@ -234,7 +250,7 @@ export function parseExternalId(externalId: string): {
 
     throw new Error(
         `无法识别的 externalId 格式: "${externalId}". ` +
-        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, NEWAPI:VIDEO:providerToken:taskId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId`
+        `支持的格式: FAL:TYPE:endpoint:requestId, ARK:TYPE:requestId, GEMINI:BATCH:batchName, GOOGLE:VIDEO:operationName, MINIMAX:TYPE:taskId, VIDU:TYPE:taskId, OPENAI:VIDEO:providerToken:videoId, OCOMPAT:TYPE:providerToken:modelKeyToken:taskId, NEWAPI:VIDEO:providerToken:taskId, XAI:VIDEO:providerToken:requestId, BAILIAN:TYPE:requestId, SILICONFLOW:TYPE:requestId`
     )
 }
 
@@ -272,6 +288,8 @@ export async function pollAsyncTask(
             return await pollOCompatTask(parsed.type, parsed.requestId, userId, parsed.providerToken, parsed.modelKeyToken)
         case 'NEWAPI':
             return await pollNewApiVideoTask(parsed.requestId, userId, parsed.providerToken)
+        case 'XAI':
+            return await pollXaiVideoTask(parsed.requestId, userId, parsed.providerToken)
         case 'BAILIAN':
             return await pollBailianTask(parsed.requestId, userId)
         case 'SILICONFLOW':
@@ -710,6 +728,92 @@ async function pollNewApiVideoTask(
         return {
             status: 'failed',
             error: 'NEWAPI completed but output URL missing',
+        }
+    }
+
+    return {
+        status: 'completed',
+        videoUrl,
+        resultUrl: videoUrl,
+    }
+}
+
+function extractXaiPollError(payload: unknown): string {
+    const message = readFirstStringPath(payload, [
+        '$.error.message',
+        '$.message',
+        '$.message_zh',
+        '$.error',
+    ])
+    if (message) return message
+    if (payload && typeof payload === 'object') {
+        try {
+            const snippet = JSON.stringify(payload).slice(0, 300)
+            if (snippet) return snippet
+        } catch {
+            return ''
+        }
+    }
+    return ''
+}
+
+async function pollXaiVideoTask(
+    requestId: string,
+    userId: string,
+    providerToken?: string,
+): Promise<PollResult> {
+    if (!providerToken) throw new Error('XAI_PROVIDER_TOKEN_MISSING')
+    const providerId = decodeProviderId(providerToken)
+    const config = await getProviderConfig(userId, providerId)
+    if (!config.baseUrl) throw new Error(`PROVIDER_BASE_URL_MISSING: ${providerId}`)
+
+    const pollUrl = resolveTemplateEndpointUrl(
+        config.baseUrl,
+        `/videos/${encodeURIComponent(requestId)}`,
+    )
+    const response = await fetch(pollUrl, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${config.apiKey}` },
+    })
+    const rawText = await response.text().catch(() => '')
+    const payload = normalizeResponseJson(rawText)
+
+    if (!response.ok) {
+        const message = extractXaiPollError(payload)
+        return {
+            status: 'failed',
+            error: `XAI status request failed: ${response.status}${message ? ` ${message}` : ''}`,
+        }
+    }
+
+    const status = readFirstStringPath(payload, ['$.status']).toLowerCase()
+    if (!status) {
+        return {
+            status: 'failed',
+            error: 'XAI status path resolve failed',
+        }
+    }
+
+    if (status === 'pending') {
+        return { status: 'pending' }
+    }
+
+    if (status === 'failed' || status === 'expired') {
+        return {
+            status: 'failed',
+            error: extractXaiPollError(payload) || `XAI task failed: ${status}`,
+        }
+    }
+
+    if (status !== 'done') {
+        return { status: 'pending' }
+    }
+
+    const videoUrl = readNewApiVideoUrl(payload)
+    if (!videoUrl) {
+        return {
+            status: 'failed',
+            error: 'XAI completed but output URL missing',
         }
     }
 

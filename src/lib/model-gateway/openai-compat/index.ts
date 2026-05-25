@@ -7,5 +7,9 @@ export {
   isNewApiSeedanceVideoModel,
   isOpenAISoraStyleVideoTemplate,
 } from './newapi-video'
+export {
+  generateVideoViaXAICompat,
+  isXaiGrokVideoModel,
+} from './xai-video'
 export { runOpenAICompatChatCompletion, runOpenAICompatChatCompletionStream } from './chat'
 export { runOpenAICompatResponsesCompletion } from './responses'
