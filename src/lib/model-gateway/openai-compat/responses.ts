@@ -31,7 +31,7 @@ function collectText(node: unknown, acc: string[]) {
   if (!record) return
 
   const type = typeof record.type === 'string' ? record.type : ''
-  if (type.includes('reasoning')) return
+  if (type.includes('reasoning') || type.includes('summary')) return
   if (typeof record.output_text === 'string') acc.push(record.output_text)
   if (typeof record.text === 'string') acc.push(record.text)
   if (typeof record.content === 'string') acc.push(record.content)
@@ -39,25 +39,34 @@ function collectText(node: unknown, acc: string[]) {
   if (record.output !== undefined) collectText(record.output, acc)
 }
 
-function collectReasoning(node: unknown, acc: string[]) {
+function collectReasoning(node: unknown, acc: string[], inReasoningContent = false) {
+  if (typeof node === 'string') {
+    if (inReasoningContent) acc.push(node)
+    return
+  }
   if (Array.isArray(node)) {
-    node.forEach((item) => collectReasoning(item, acc))
+    node.forEach((item) => collectReasoning(item, acc, inReasoningContent))
     return
   }
   const record = asRecord(node)
   if (!record) return
 
   const type = typeof record.type === 'string' ? record.type : ''
-  if (type.includes('reasoning')) {
+  const isReasoningNode = type.includes('reasoning') || type.includes('summary') || type.includes('think')
+  const shouldCollectDirectText = inReasoningContent || isReasoningNode
+  if (shouldCollectDirectText) {
     if (typeof record.text === 'string') acc.push(record.text)
     if (typeof record.content === 'string') acc.push(record.content)
     if (record.content !== undefined && typeof record.content !== 'string') {
-      collectReasoning(record.content, acc)
+      collectReasoning(record.content, acc, true)
     }
   }
 
+  if (record.summary !== undefined) collectReasoning(record.summary, acc, shouldCollectDirectText)
   if (record.reasoning !== undefined) collectReasoning(record.reasoning, acc)
-  if (record.reasoning_content !== undefined) collectReasoning(record.reasoning_content, acc)
+  if (record.reasoning_content !== undefined) collectReasoning(record.reasoning_content, acc, true)
+  if (record.reasoningContent !== undefined) collectReasoning(record.reasoningContent, acc, true)
+  if (record.thinking !== undefined) collectReasoning(record.thinking, acc, true)
   if (record.output !== undefined) collectReasoning(record.output, acc)
 }
 
@@ -94,23 +103,37 @@ function extractResponsesUsage(payload: unknown): ResponsesUsage {
   }
 }
 
+function mapResponsesReasoningEffort(
+  effort: OpenAICompatChatRequest['reasoningEffort'],
+): 'low' | 'medium' | 'high' {
+  if (effort === 'low' || effort === 'medium' || effort === 'high') return effort
+  return 'high'
+}
+
 export async function runOpenAICompatResponsesCompletion(input: OpenAICompatChatRequest) {
   const config = await resolveOpenAICompatClientConfig(input.userId, input.providerId)
   const endpoint = toEndpoint(config.baseUrl, '/responses')
+  const body: Record<string, unknown> = {
+    model: input.modelId,
+    input: input.messages.map((message) => ({
+      role: message.role,
+      content: [{ type: 'input_text', text: message.content }],
+    })),
+    temperature: input.temperature,
+  }
+  if (input.reasoning !== false) {
+    body.reasoning = {
+      effort: mapResponsesReasoningEffort(input.reasoningEffort),
+      summary: 'auto',
+    }
+  }
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${config.apiKey}`,
     },
-    body: JSON.stringify({
-      model: input.modelId,
-      input: input.messages.map((message) => ({
-        role: message.role,
-        content: [{ type: 'input_text', text: message.content }],
-      })),
-      temperature: input.temperature,
-    }),
+    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
